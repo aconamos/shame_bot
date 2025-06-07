@@ -1,141 +1,88 @@
+use std::time::Duration;
+
 use ::serenity::all::{
-    CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption, FullEvent, Interaction,
-    UserId,
+    ActivityData, CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption, FullEvent,
+    Interaction, RoleId, UserId,
 };
 use dotenv::dotenv;
-use poise::{ApplicationContext, FrameworkContext, serenity_prelude as serenity};
-use regex::Regex;
+use humantime::format_duration;
+use humantime::parse_duration;
+use poise::{ApplicationContext, CreateReply, FrameworkContext, serenity_prelude as serenity};
+use setup_commands::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
+mod setup_commands;
+
 // User data, which is stored and accessible in all command invocations
-struct Data {
+pub(crate) struct Data {
     pool: PgPool,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-/// Displays your or another user's account creation date
-#[poise::command(slash_command)]
-async fn set_kennel_role(
-    ctx: Context<'_>,
-    #[description = "The kenneling role"] role: serenity::Role,
-) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
-
-    sqlx::query(
-        r#"
-        INSERT INTO servers(guild_id, role_id) 
-        VALUES ($1, $2)
-        ON CONFLICT (guild_id)
-        DO UPDATE SET
-            role_id=$2
-            ;
-    "#,
-    )
-    .bind(format!("{}", role.guild_id.get()))
-    .bind(format!("{}", role.id.get()))
-    .execute(pool)
-    .await?;
-
-    ctx.reply(format!(
-        "Successfully set this guild's kennel role to <@&{}>",
-        role.id
-    ))
-    .await?;
-
-    Ok(())
+// https://github.com/coravacav/uofu-cs-discord-bot/blob/0513983163f0563a26709004dccb954948dffb2a/bot-lib/src/utils.rs
+pub trait GetRelativeTimestamp {
+    fn discord_relative_timestamp(&self) -> String;
 }
 
-#[poise::command(slash_command)]
-async fn set_kennel_command(
-    ctx: Context<'_>,
-    #[description = "The command to kennel someone"] command: String,
-) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
-
-    let guild_id = ctx.guild_id().expect("No guild ID???");
-
-    let re = Regex::new(r"^[a-zA-Z]+$").unwrap();
-
-    if !re.is_match(command.as_str()) {
-        ctx.reply(format!(
-            "Cannot set the command to {}! Make sure it only uses letters!",
-            &command
-        ))
-        .await?;
-
-        return Ok(());
+impl GetRelativeTimestamp for chrono::DateTime<chrono::Utc> {
+    fn discord_relative_timestamp(&self) -> String {
+        format!("<t:{}:R>", self.timestamp())
     }
-
-    sqlx::query(
-        r#"
-        INSERT INTO servers(guild_id, command_name) 
-        VALUES ($1, $2)
-        ON CONFLICT (guild_id)
-        DO UPDATE SET
-            command_name=$2
-            ;
-    "#,
-    )
-    .bind(format!("{}", &guild_id))
-    .bind(&command)
-    .execute(pool)
-    .await?;
-
-    let cmd = CreateCommand::new(&command)
-        .description("Punish a user!")
-        .add_option(
-            CreateCommandOption::new(
-                serenity::CommandOptionType::User,
-                "user",
-                "User to be punished",
-            )
-            .required(true),
-        )
-        .add_option(
-            CreateCommandOption::new(
-                serenity::CommandOptionType::String,
-                "time",
-                "How long to punish the user",
-            )
-            .required(true),
-        );
-
-    ctx.http()
-        .create_guild_commands(guild_id, &vec![cmd])
-        .await?;
-
-    ctx.reply(format!(
-        "Successfully set this guild's kennel command to: /{}",
-        &command
-    ))
-    .await?;
-
-    Ok(())
 }
 
-#[poise::command(slash_command)]
-async fn set_kennel_message(
-    ctx: Context<'_>,
-    #[description = "The message to send when kenneling someone"] message: String,
-) -> Result<(), Error> {
-    todo!()
+trait SendReplyEphemeral {
+    async fn reply_ephemeral(&self, content: impl Into<String>) -> Result<(), Error>;
 }
 
+impl SendReplyEphemeral for Context<'_> {
+    async fn reply_ephemeral(&self, content: impl Into<String>) -> Result<(), Error> {
+        let reply = CreateReply::default()
+            .reply(true)
+            .ephemeral(true)
+            .content(content);
+
+        self.send(reply).await?;
+
+        Ok(())
+    }
+}
+
+fn get_formatted_message(
+    message: &String,
+    victim: &UserId,
+    kenneler: &UserId,
+    time: &String,
+    return_time: &String,
+) -> String {
+    message
+        .replace("$victim", format!("<@{}>", victim).as_str())
+        .replace("$kenneler", format!("<@{}>", kenneler).as_str())
+        .replace("$time", &time)
+        .replace("$return", &return_time)
+}
+
+/// Kennels someone.
 #[poise::command(slash_command)]
 async fn kennel_user(
     ctx: Context<'_>,
     #[description = "User to kennel"] user: UserId,
     #[description = "Time to kennel"] time: String,
 ) -> Result<(), Error> {
+    let Ok(dur_time) = parse_duration(&time) else {
+        return ctx
+            .reply_ephemeral("Invalid time format! Say something like '3m' or '1h'")
+            .await;
+    };
+
     let data = sqlx::query!(
         r#"
-            SELECT * FROM servers
-            WHERE
-                guild_id = $1
-                AND command_name = $2
-                ;
+        SELECT * FROM servers
+        WHERE
+        guild_id = $1
+        AND command_name = $2
+        ;
         "#,
         format!("{}", ctx.guild_id().ok_or("No guild ID!")?.get()),
         ctx.invoked_command_name()
@@ -143,21 +90,77 @@ async fn kennel_user(
     .fetch_one(&ctx.data().pool)
     .await?;
 
-    ctx.reply(format!(
-        "
-Command Name: {}
-Command Verb: {}
-Guild ID: {}
-Kennel Role: {}
-Command ID: {}
-",
-        data.command_name.unwrap_or("none".into()),
-        data.command_verb.unwrap_or("none".into()),
-        data.guild_id,
-        data.role_id.unwrap_or("none".into()),
-        data.command_id.unwrap_or("none".into()),
-    ))
+    let metadata = sqlx::query!(
+        r#"
+            SELECT * FROM metadata
+            ;
+        "#
+    )
+    .fetch_one(&ctx.data().pool)
     .await?;
+
+    let total_time_kenneled = metadata.total_kennel_time.unwrap() + dur_time.as_secs() as i32;
+
+    sqlx::query!(
+        r#"
+            UPDATE metadata 
+            SET
+                total_kennel_time = $1
+                ;
+        "#,
+        total_time_kenneled
+    )
+    .execute(&ctx.data().pool)
+    .await?;
+
+    ctx.serenity_context()
+        .set_activity(Some(ActivityData::custom(format!(
+            "Kenneled users for {}",
+            format_duration(Duration::from_secs(total_time_kenneled as u64))
+        ))));
+
+    let Some(role_id) = data.role_id else {
+        return ctx.reply_ephemeral("Set kennel role first!").await;
+    };
+    let http = ctx.http();
+    let guild = ctx.guild_id().expect("No guild ID!");
+    let member = guild.member(http, user).await?;
+    let role_id = RoleId::new(role_id.parse::<u64>()?);
+    let return_time = chrono::Utc::now() + dur_time.clone();
+
+    let reply = get_formatted_message(
+        &data.command_verb.unwrap_or(
+            "$kenneler has kenneled $victim for $time.\n\nThey will be released $return."
+                .to_string(),
+        ),
+        &user,
+        &ctx.author().id,
+        &time,
+        &return_time.discord_relative_timestamp(),
+    );
+
+    member.add_role(http, &role_id).await?;
+
+    let reply_handle = ctx.reply(reply).await?;
+
+    tokio::time::sleep(dur_time).await;
+
+    member.remove_role(http, &role_id).await?;
+
+    reply_handle
+        .edit(
+            ctx,
+            CreateReply::default().content(get_formatted_message(
+                &data
+                    .release_message
+                    .unwrap_or("$victim has been released from the kennel.".to_string()),
+                &user,
+                &ctx.author().id,
+                &time,
+                &return_time.discord_relative_timestamp(),
+            )),
+        )
+        .await?;
 
     Ok(())
 }
@@ -215,7 +218,11 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![set_kennel_role(), set_kennel_command()],
+            commands: vec![
+                set_kennel_role(),
+                set_kennel_command(),
+                set_kennel_message(),
+            ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             ..Default::default()
         })
