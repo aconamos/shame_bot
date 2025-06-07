@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO servers(guild_id, command_verb) \n            VALUES ($1, $2)\n            ON CONFLICT (guild_id)\n            DO UPDATE SET\n                command_verb=$2\n                ;            \n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3efc5ef41336c0a5db69fef838839eb852b1583e1617dec466e2a7e5b3075c31"
+}

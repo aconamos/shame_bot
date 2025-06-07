@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT * FROM servers\n        WHERE\n        guild_id = $1\n        AND command_name = $2\n        ;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guild_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "command_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "command_verb",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "release_message",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "role_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ece3d1e044389574fd35cb235fbb29cb1d6583131998ccead63b396ac228f224"
+}
