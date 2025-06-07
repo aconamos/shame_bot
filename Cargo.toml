@@ -10,5 +10,5 @@ humantime = "2.2.0"
 poise = "0.6.1"
 regex = "1.11.1"
 serenity = "0.12.4"
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio"] }
+sqlx = { version = "0.8.6", features = ["chrono", "postgres", "runtime-tokio", "time"] }
 tokio = { version = "1.45.1", features = ["rt-multi-thread"] }

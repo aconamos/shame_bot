@@ -1,3 +1,4 @@
+use ::serenity::all::Permissions;
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 
@@ -7,7 +8,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 /// Sets the kennel role.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
 pub async fn set_kennel_role(
     ctx: Context<'_>,
     #[description = "The kenneling role"] role: serenity::Role,
@@ -39,7 +40,7 @@ pub async fn set_kennel_role(
 }
 
 /// Sets the command to kennel someone.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
 pub async fn set_kennel_command(
     ctx: Context<'_>,
     #[description = "The command to kennel someone"] command: String,
@@ -92,7 +93,8 @@ pub async fn set_kennel_command(
                 "How long to punish the user",
             )
             .required(true),
-        );
+        )
+        .default_member_permissions(Permissions::MODERATE_MEMBERS);
 
     ctx.http()
         .create_guild_commands(guild_id, &vec![cmd])
@@ -108,7 +110,7 @@ pub async fn set_kennel_command(
 }
 
 /// Sets the message sent when kenneling someone.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
 pub async fn set_kennel_message(
     ctx: Context<'_>,
     #[description = "The message to send when kenneling someone. Use $victim, $kenneler, $time, and $return to format."]
@@ -140,7 +142,7 @@ pub async fn set_kennel_message(
 }
 
 /// Sets the message sent when someone is released from the kennel.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
 pub async fn set_release_message(
     ctx: Context<'_>,
     #[description = "The message to send when someone is released from the kennel. Use $victim, $kenneler, $time, and $return to format."]

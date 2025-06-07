@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use ::serenity::all::Permissions;
 use ::serenity::all::{
     ActivityData, CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption, FullEvent,
     Interaction, RoleId, UserId,
@@ -9,6 +10,7 @@ use humantime::format_duration;
 use humantime::parse_duration;
 use poise::{ApplicationContext, CreateReply, FrameworkContext, serenity_prelude as serenity};
 use setup_commands::*;
+use sqlx::postgres::types::PgInterval;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 mod setup_commands;
@@ -64,7 +66,7 @@ fn get_formatted_message(
 }
 
 /// Kennels someone.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, required_permissions = "MODERATE_MEMBERS")]
 async fn kennel_user(
     ctx: Context<'_>,
     #[description = "User to kennel"] user: UserId,
@@ -75,6 +77,10 @@ async fn kennel_user(
             .reply_ephemeral("Invalid time format! Say something like '3m' or '1h'")
             .await;
     };
+
+    if dur_time < Duration::from_secs(1) {
+        return ctx.reply_ephemeral("Over 1 second, please...").await;
+    }
 
     let data = sqlx::query!(
         r#"
@@ -90,34 +96,28 @@ async fn kennel_user(
     .fetch_one(&ctx.data().pool)
     .await?;
 
-    let metadata = sqlx::query!(
-        r#"
-            SELECT * FROM metadata
-            ;
-        "#
-    )
-    .fetch_one(&ctx.data().pool)
-    .await?;
+    // let metadata = sqlx::query!(
+    //     r#"
+    //         SELECT * FROM metadata
+    //         ;
+    //     "#
+    // )
+    // .fetch_one(&ctx.data().pool)
+    // .await?;
 
-    let total_time_kenneled = metadata.total_kennel_time.unwrap() + dur_time.as_secs() as i32;
+    // let total_time_kenneled = metadata.total_kennel_time.unwrap() + dur_time.as_secs() as i32;
 
-    sqlx::query!(
-        r#"
-            UPDATE metadata 
-            SET
-                total_kennel_time = $1
-                ;
-        "#,
-        total_time_kenneled
-    )
-    .execute(&ctx.data().pool)
-    .await?;
-
-    ctx.serenity_context()
-        .set_activity(Some(ActivityData::custom(format!(
-            "Kenneled users for {}",
-            format_duration(Duration::from_secs(total_time_kenneled as u64))
-        ))));
+    // sqlx::query!(
+    //     r#"
+    //         UPDATE metadata
+    //         SET
+    //             total_kennel_time = $1
+    //             ;
+    //     "#,
+    //     total_time_kenneled
+    // )
+    // .execute(&ctx.data().pool)
+    // .await?;
 
     let Some(role_id) = data.role_id else {
         return ctx.reply_ephemeral("Set kennel role first!").await;
@@ -142,6 +142,46 @@ async fn kennel_user(
     member.add_role(http, &role_id).await?;
 
     let reply_handle = ctx.reply(reply).await?;
+
+    if let Ok(pg_int) = PgInterval::try_from(dur_time) {
+        sqlx::query!(
+            r#"
+            INSERT INTO kennelings(guild_id, user_id, kennel_length, kenneled_at)
+            VALUES($1, $2, $3, NOW())
+            ;
+        "#,
+            format!("{}", guild.get()),
+            format!("{}", user.get()),
+            pg_int,
+        )
+        .execute(&ctx.data().pool)
+        .await?;
+    }
+
+    if let Ok(res) = sqlx::query!(
+        r#"
+        SELECT SUM(kennel_length)
+        FROM kennelings
+        WHERE 
+            NOT guild_id = '849505364764524565'
+            ;
+        "#
+    )
+    .fetch_one(&ctx.data().pool)
+    .await
+    {
+        if let Some(sum) = res.sum {
+            ctx.serenity_context()
+                .set_activity(Some(ActivityData::custom(format!(
+                    "Kenneled users for {}",
+                    format_duration(
+                        Duration::from_micros(sum.microseconds as u64)
+                            + Duration::from_secs(sum.days as u64 * 24 * 60 * 60)
+                            + Duration::from_secs(sum.months as u64 * 30 * 24 * 60 * 60)
+                    )
+                ))));
+        }
+    }
 
     tokio::time::sleep(dur_time).await;
 
@@ -261,7 +301,8 @@ async fn main() {
                                     "How long to punish the user",
                                 )
                                 .required(true),
-                            );
+                            )
+                            .default_member_permissions(Permissions::MODERATE_MEMBERS);
 
                         ctx.http()
                             .create_guild_commands(
