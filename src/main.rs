@@ -1,12 +1,9 @@
-use std::collections::HashMap;
-
 use ::serenity::all::{
-    Builder, CommandInteraction, CommandOption, Context as SerenityCtx, CreateCommand,
-    CreateCommandOption, Event, EventHandler, FullEvent, Interaction, InteractionCreateEvent,
-    ResolvedValue, UserId,
+    CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption, FullEvent, Interaction,
+    UserId,
 };
 use dotenv::dotenv;
-use poise::{ApplicationContext, Command, FrameworkContext, serenity_prelude as serenity};
+use poise::{ApplicationContext, FrameworkContext, serenity_prelude as serenity};
 use regex::Regex;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
@@ -105,7 +102,9 @@ async fn set_kennel_command(
             .required(true),
         );
 
-    guild_id.create_command(ctx, cmd).await?;
+    ctx.http()
+        .create_guild_commands(guild_id, &vec![cmd])
+        .await?;
 
     ctx.reply(format!(
         "Successfully set this guild's kennel command to: /{}",
@@ -169,11 +168,8 @@ async fn wildcard_command_handler(
     framework_ctx: FrameworkContext<'_, Data, Error>,
     data: &Data,
 ) -> Result<(), Error> {
-    println!("firing (handler");
     if let FullEvent::InteractionCreate { interaction } = event {
-        println!("firing (interact create");
         if let Interaction::Command(command_interaction) = interaction {
-            println!("firing (command)");
             if command_interaction.data.name == "set_kennel_command"
                 || command_interaction.data.name == "set_kennel_role"
             {
@@ -225,11 +221,51 @@ async fn main() {
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 let pool = PgPoolOptions::new()
                     .max_connections(5)
                     .connect(postgres_url.as_str())
                     .await?;
+
+                let data = sqlx::query!(
+                    r#"
+                SELECT * FROM servers
+                ;
+                "#
+                )
+                .fetch_all(&pool)
+                .await?;
+
+                for thing in data {
+                    if let Some(name) = thing.command_name {
+                        let cmd = CreateCommand::new(&name)
+                            .description("Punish a user!")
+                            .add_option(
+                                CreateCommandOption::new(
+                                    serenity::CommandOptionType::User,
+                                    "user",
+                                    "User to be punished",
+                                )
+                                .required(true),
+                            )
+                            .add_option(
+                                CreateCommandOption::new(
+                                    serenity::CommandOptionType::String,
+                                    "time",
+                                    "How long to punish the user",
+                                )
+                                .required(true),
+                            );
+
+                        ctx.http()
+                            .create_guild_commands(
+                                thing.guild_id.parse::<u64>()?.into(),
+                                &vec![cmd],
+                            )
+                            .await?;
+                    }
+                }
+
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data { pool })
             })
         })
