@@ -96,29 +96,6 @@ async fn kennel_user(
     .fetch_one(&ctx.data().pool)
     .await?;
 
-    // let metadata = sqlx::query!(
-    //     r#"
-    //         SELECT * FROM metadata
-    //         ;
-    //     "#
-    // )
-    // .fetch_one(&ctx.data().pool)
-    // .await?;
-
-    // let total_time_kenneled = metadata.total_kennel_time.unwrap() + dur_time.as_secs() as i32;
-
-    // sqlx::query!(
-    //     r#"
-    //         UPDATE metadata
-    //         SET
-    //             total_kennel_time = $1
-    //             ;
-    //     "#,
-    //     total_time_kenneled
-    // )
-    // .execute(&ctx.data().pool)
-    // .await?;
-
     let Some(role_id) = data.role_id else {
         return ctx.reply_ephemeral("Set kennel role first!").await;
     };
@@ -310,6 +287,30 @@ async fn main() {
                                 &vec![cmd],
                             )
                             .await?;
+                    }
+                }
+
+                if let Ok(res) = sqlx::query!(
+                    r#"
+                        SELECT SUM(kennel_length)
+                        FROM kennelings
+                        WHERE 
+                            NOT guild_id = '849505364764524565'
+                            ;
+                    "#
+                )
+                .fetch_one(&pool)
+                .await
+                {
+                    if let Some(sum) = res.sum {
+                        ctx.set_activity(Some(ActivityData::custom(format!(
+                            "Kenneled users for {}",
+                            format_duration(
+                                Duration::from_micros(sum.microseconds as u64)
+                                    + Duration::from_secs(sum.days as u64 * 24 * 60 * 60)
+                                    + Duration::from_secs(sum.months as u64 * 30 * 24 * 60 * 60)
+                            )
+                        ))));
                     }
                 }
 

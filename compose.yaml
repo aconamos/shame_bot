@@ -1,7 +1,10 @@
 services:
-  adminer:
-    image: adminer
+  shame_bot:
+    build: .
+    image: shame_bot:latest
     restart: always
-    ports:
-      - 8080:8080
-
+    environment:
+      - BOT_TOKEN=
+      - APPLICATION_ID=
+      - PUBLIC_KEY=
+      - DATABASE_URL=

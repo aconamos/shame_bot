@@ -3,6 +3,13 @@ name = "shame_bot"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "shame_bot"
+path = "./src/main.rs"
+test = false
+doctest = false
+bench = false
+
 [dependencies]
 chrono = "0.4.41"
 dotenv = "0.15.0"
@@ -10,5 +17,10 @@ humantime = "2.2.0"
 poise = "0.6.1"
 regex = "1.11.1"
 serenity = "0.12.4"
-sqlx = { version = "0.8.6", features = ["chrono", "postgres", "runtime-tokio", "time"] }
+sqlx = { version = "0.8.6", features = [
+    "chrono",
+    "postgres",
+    "runtime-tokio",
+    "time",
+] }
 tokio = { version = "1.45.1", features = ["rt-multi-thread"] }
