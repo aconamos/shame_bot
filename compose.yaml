@@ -4,7 +4,7 @@ services:
     image: shame_bot:latest
     restart: always
     environment:
-      - BOT_TOKEN=
-      - APPLICATION_ID=
-      - PUBLIC_KEY=
-      - DATABASE_URL=
+      - BOT_TOKEN=${BOT_TOKEN}
+      - APPLICATION_ID=${APPLICATION_ID}
+      - PUBLIC_KEY=${PUBLIC_KEY}
+      - DATABASE_URL=${DATABASE_URL}
