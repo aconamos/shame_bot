@@ -65,6 +65,44 @@ fn get_formatted_message(
         .replace("$return", &return_time)
 }
 
+/// Tells you the total time kenneled in case you can't read the status
+#[poise::command(slash_command)]
+async fn time_kenneled(ctx: Context<'_>) -> Result<(), Error> {
+    let pool = &ctx.data().pool;
+
+    match sqlx::query!(
+        r#"
+        SELECT SUM(kennel_length)
+        FROM kennelings
+        WHERE 
+            NOT guild_id = '849505364764524565'
+            ;
+        "#
+    )
+    .fetch_one(pool)
+    .await
+    {
+        Ok(res) => {
+            if let Some(sum) = res.sum {
+                ctx.reply(format!(
+                    "Kenneled users for {}",
+                    format_duration(
+                        Duration::from_micros(sum.microseconds as u64)
+                            + Duration::from_secs(sum.days as u64 * 24 * 60 * 60)
+                            + Duration::from_secs(sum.months as u64 * 30 * 24 * 60 * 60)
+                    )
+                ))
+                .await?;
+            }
+        }
+        Err(_) => {
+            ctx.reply("Database error???").await?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Kennels someone.
 #[poise::command(slash_command, required_permissions = "MODERATE_MEMBERS")]
 async fn kennel_user(
@@ -239,6 +277,7 @@ async fn main() {
                 set_kennel_role(),
                 set_kennel_command(),
                 set_kennel_message(),
+                time_kenneled(),
             ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             ..Default::default()
