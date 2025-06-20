@@ -2,24 +2,28 @@
 
 \connect "kennels";
 
-CREATE TABLE IF NOT EXISTS "public"."kennelings" (
+CREATE TABLE "public"."kennelings" (
     "guild_id" character varying(128) NOT NULL,
     "victim" character varying(128) NOT NULL,
-    "kenneler" character varying(128) NOT NULL,
     "kennel_length" interval NOT NULL,
-    "kenneled_at" timestamp NOT NULL
+    "kenneled_at" timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "kenneler" character varying(128) NOT NULL,
+    "released_at" timestamp GENERATED ALWAYS AS ((kenneled_at + kennel_length)) STORED NOT NULL
 )
 WITH (oids = false);
 
-CREATE TABLE IF NOT EXISTS "public"."servers" (
+
+CREATE TABLE "public"."servers" (
     "guild_id" character varying(128) NOT NULL,
-    "command_name" text,
-    "command_verb" text,
-    "release_message" text,
-    "role_id" character varying(128),
+    "command_name" text DEFAULT 'kennel' NOT NULL,
+    "command_verb" text DEFAULT 'They will be released $return.''' NOT NULL,
+    "release_message" text DEFAULT '$victim has been released from the kennel.' NOT NULL,
+    "role_id" character varying(128) NOT NULL,
     CONSTRAINT "kennels_pkey" PRIMARY KEY ("guild_id")
 )
 WITH (oids = false);
 
+CREATE INDEX servers_guild_id_command_name ON public.servers USING btree (guild_id, command_name);
 
--- 2025-06-19 19:35:15 UTC
+
+-- 2025-06-20 05:53:19 UTC

@@ -1,14 +1,16 @@
 use std::time::Duration;
 
 use ::serenity::all::{
-    ActivityData, CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption, FullEvent,
-    Interaction, RoleId, UserId,
+    ActivityData, CacheHttp, Context as SerenityCtx, CreateCommand, CreateCommandOption,
+    EditMessage, FullEvent, Interaction, Message, RoleId, UserId,
 };
 use ::serenity::all::{GuildId, Permissions};
 use dotenv::dotenv;
 use humantime::format_duration;
 use humantime::parse_duration;
-use poise::{ApplicationContext, CreateReply, FrameworkContext, serenity_prelude as serenity};
+use poise::{
+    ApplicationContext, CreateReply, FrameworkContext, ReplyHandle, serenity_prelude as serenity,
+};
 use setup_commands::*;
 use sqlx::postgres::types::PgInterval;
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -136,7 +138,19 @@ async fn kennel_user(
 
     member.add_role(http, &role_id).await?;
 
-    let reply_handle = ctx.reply(reply).await?;
+    let reply_handle = ctx.reply(&reply).await?;
+
+    let mut kennel_handle: Option<Message> = None;
+
+    if let Some(kennel_channel) = data.kennel_channel {
+        let kennel_channel = kennel_channel
+            .parse::<u64>()
+            .expect("Invalid kennel_channel data inserted into database!");
+
+        if let Ok(channel) = http.get_channel(kennel_channel.into()).await {
+            kennel_handle = channel.id().say(http, &reply).await.ok();
+        }
+    }
 
     sqlx::query!(
         r#"
@@ -184,18 +198,23 @@ async fn kennel_user(
 
     member.remove_role(http, &role_id).await?;
 
+    let formatted_msg = get_formatted_message(
+        &data.release_message,
+        &user,
+        &author_id,
+        &time,
+        &return_time.discord_relative_timestamp(),
+    );
+
     reply_handle
-        .edit(
-            ctx,
-            CreateReply::default().content(get_formatted_message(
-                &data.release_message,
-                &user,
-                &author_id,
-                &time,
-                &return_time.discord_relative_timestamp(),
-            )),
-        )
+        .edit(ctx, CreateReply::default().content(&formatted_msg))
         .await?;
+
+    if let Some(mut kennel_msg) = kennel_handle {
+        let _ = kennel_msg
+            .edit(ctx, EditMessage::default().content(formatted_msg))
+            .await;
+    }
 
     Ok(())
 }
@@ -262,6 +281,7 @@ async fn main() {
                 set_kennel_command(),
                 set_kennel_message(),
                 set_release_message(),
+                set_kennel_channel(),
                 time_kenneled(),
             ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),

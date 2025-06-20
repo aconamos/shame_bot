@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE servers\n        SET\n            kennel_channel = $1\n        WHERE\n            guild_id = $2\n            ;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "202478267a8ba39bed8b88c18aaa7e71df6c87af773259f86c24546806222799"
+}

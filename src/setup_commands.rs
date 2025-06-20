@@ -1,6 +1,6 @@
 //! Contains commands for configuring the bot's usage in a given server.
 
-use ::serenity::all::{CreateCommand, Permissions};
+use ::serenity::all::{ChannelId, CreateCommand, Permissions};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 
@@ -219,6 +219,47 @@ pub async fn set_release_message(
         ctx.reply("Couldn't set release message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
         ctx.reply(format!("Set release message to: {}", message))
+            .await?;
+    }
+
+    Ok(())
+}
+
+/// An optional channel to send kennel messages to, so that victims know how long they're kenneled for.
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
+pub async fn set_kennel_channel(
+    ctx: Context<'_>,
+    #[description = "The kennel channel to announce in"] message: ChannelId,
+) -> Result<(), Error> {
+    let Data { pool } = ctx.data();
+
+    let Some(guild_id) = ctx.guild_id() else {
+        ctx.reply("This command can only be used in a server!")
+            .await?;
+
+        return Ok(());
+    };
+
+    let rows_affected = sqlx::query!(
+        r#"
+        UPDATE servers
+        SET
+            kennel_channel = $1
+        WHERE
+            guild_id = $2
+            ;
+        "#,
+        message.get().to_string(),
+        guild_id.get().to_string(),
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        ctx.reply("Couldn't set kennel channel! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+    } else {
+        ctx.reply(format!("Set kennel channel to: {}", message))
             .await?;
     }
 

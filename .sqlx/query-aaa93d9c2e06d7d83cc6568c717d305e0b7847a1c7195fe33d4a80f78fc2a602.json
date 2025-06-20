@@ -27,6 +27,11 @@
         "ordinal": 4,
         "name": "role_id",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "kennel_channel",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -40,7 +45,8 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
   "hash": "aaa93d9c2e06d7d83cc6568c717d305e0b7847a1c7195fe33d4a80f78fc2a602"
