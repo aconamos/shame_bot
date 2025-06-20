@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "command_verb",
+        "name": "announcement_message",
         "type_info": "Text"
       },
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "kennel_channel",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "kennel_message",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -46,7 +51,8 @@
       false,
       false,
       false,
-      true
+      true,
+      false
     ]
   },
   "hash": "aaa93d9c2e06d7d83cc6568c717d305e0b7847a1c7195fe33d4a80f78fc2a602"

@@ -126,20 +126,29 @@ async fn kennel_user(
             .expect("Invalid role_id data inserted into database! WTF?"),
     );
     let author_id = ctx.author().id;
-    let return_time = chrono::Utc::now() + dur_time.clone();
-    let reply = get_formatted_message(
-        &data.command_verb,
+    let return_timestamp = chrono::Utc::now() + dur_time.clone();
+    let announcement = get_formatted_message(
+        &data.announcement_message,
         &user,
         &ctx.author().id,
         &time,
-        &return_time.discord_relative_timestamp(),
+        &return_timestamp.discord_relative_timestamp(),
+    );
+    let kennel_message = get_formatted_message(
+        &data.kennel_message,
+        &user,
+        &ctx.author().id,
+        &time,
+        &return_timestamp.discord_relative_timestamp(),
     );
     let pg_int = PgInterval::try_from(dur_time).expect("Some fuckwit put in a microsecond value?");
 
     member.add_role(http, &role_id).await?;
 
-    let reply_handle = ctx.reply(&reply).await?;
+    // Send the announcement message in the channel where kenneling was executed
+    let reply_handle = ctx.reply(&announcement).await?;
 
+    // Send the kenneling message in the dedicated kennel channel, if it exists
     let mut kennel_handle: Option<Message> = None;
 
     if let Some(kennel_channel) = data.kennel_channel {
@@ -148,7 +157,7 @@ async fn kennel_user(
             .expect("Invalid kennel_channel data inserted into database!");
 
         if let Ok(channel) = http.get_channel(kennel_channel.into()).await {
-            kennel_handle = channel.id().say(http, &reply).await.ok();
+            kennel_handle = channel.id().say(http, &kennel_message).await.ok();
         }
     }
 
@@ -168,6 +177,7 @@ async fn kennel_user(
     .execute(&ctx.data().pool)
     .await?;
 
+    // Set kennel length activity
     // TODO: Turn this into a helper function
     if let Ok(res) = sqlx::query!(
         r#"
@@ -198,21 +208,22 @@ async fn kennel_user(
 
     member.remove_role(http, &role_id).await?;
 
-    let formatted_msg = get_formatted_message(
+    let release_message = get_formatted_message(
         &data.release_message,
         &user,
         &author_id,
         &time,
-        &return_time.discord_relative_timestamp(),
+        &return_timestamp.discord_relative_timestamp(),
     );
 
+    // For now, both will be the same release message. Maybe this will be changed?
     reply_handle
-        .edit(ctx, CreateReply::default().content(&formatted_msg))
+        .edit(ctx, CreateReply::default().content(&release_message))
         .await?;
 
     if let Some(mut kennel_msg) = kennel_handle {
         let _ = kennel_msg
-            .edit(ctx, EditMessage::default().content(formatted_msg))
+            .edit(ctx, EditMessage::default().content(release_message))
             .await;
     }
 
@@ -228,12 +239,10 @@ async fn wildcard_command_handler(
     if let FullEvent::InteractionCreate { interaction } = event {
         if let Interaction::Command(command_interaction) = interaction {
             println!("{}", command_interaction.data.name);
-            // TODO: Is there a better way to check this?
-            if command_interaction.data.name == "set_kennel_command"
-                || command_interaction.data.name == "set_kennel_role"
-                || command_interaction.data.name == "set_kennel_message"
-                || command_interaction.data.name == "set_release_message"
-            {
+            // This isn't strictly bulletproof, but it works well enough as long as the only
+            // commands we want to ignore in this event listener are the globally registered
+            // ones.
+            if command_interaction.data.guild_id.is_none() {
                 return Ok(());
             }
 
@@ -279,6 +288,7 @@ async fn main() {
             commands: vec![
                 set_kennel_role(),
                 set_kennel_command(),
+                set_announcement_message(),
                 set_kennel_message(),
                 set_release_message(),
                 set_kennel_channel(),
