@@ -141,9 +141,9 @@ pub async fn set_kennel_command(
     Ok(())
 }
 
-/// Sets the message sent when kenneling someone.
+/// Sets the message sent when kenneling someone in the channel where it's called.
 #[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
-pub async fn set_kennel_message(
+pub async fn set_announcement_message(
     ctx: Context<'_>,
     #[description = "The message to send when kenneling someone. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
@@ -161,7 +161,7 @@ pub async fn set_kennel_message(
         r#"
         UPDATE servers
         SET
-            command_verb = $1
+            announcement_message = $1
         WHERE 
             guild_id = $2
             ;
@@ -174,9 +174,50 @@ pub async fn set_kennel_message(
     .rows_affected();
 
     if rows_affected == 0 {
-        ctx.reply("Couldn't set kennel message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+        ctx.reply("Couldn't set announcement message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
-        ctx.reply(format!("Set kennel message to: {}", message))
+        ctx.reply(format!("Set announcement message to: {}", message))
+            .await?;
+    }
+
+    Ok(())
+}
+
+/// Sets the message sent when kenneling someone in the kennel channel.
+#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
+pub async fn set_kennel_message(
+    ctx: Context<'_>,
+    #[description = "The message to send in the kennel when kenneling someone."] message: String,
+) -> Result<(), Error> {
+    let Data { pool } = ctx.data();
+
+    let Some(guild_id) = ctx.guild_id() else {
+        ctx.reply("This command can only be used in a server!")
+            .await?;
+
+        return Ok(());
+    };
+
+    let rows_affected = sqlx::query!(
+        r#"
+        UPDATE servers
+        SET
+            kennel_message = $1
+        WHERE 
+            guild_id = $2
+            ;
+        "#,
+        message,
+        guild_id.get().to_string(),
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        ctx.reply("Couldn't set kenneling message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+    } else {
+        ctx.reply(format!("Set kenneling message to: {}", message))
             .await?;
     }
 
