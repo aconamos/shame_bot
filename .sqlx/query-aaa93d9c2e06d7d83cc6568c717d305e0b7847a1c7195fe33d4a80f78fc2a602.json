@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT * FROM servers\n        WHERE\n        guild_id = $1\n        AND command_name = $2\n        ;\n        ",
+  "query": "\n        SELECT * FROM servers\n        WHERE\n            guild_id = $1\n            AND command_name = $2\n            ;\n        ",
   "describe": {
     "columns": [
       {
@@ -37,11 +37,11 @@
     },
     "nullable": [
       false,
-      true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "ece3d1e044389574fd35cb235fbb29cb1d6583131998ccead63b396ac228f224"
+  "hash": "aaa93d9c2e06d7d83cc6568c717d305e0b7847a1c7195fe33d4a80f78fc2a602"
 }
