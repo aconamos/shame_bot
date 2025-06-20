@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT * FROM servers\n                ;\n                ",
+  "query": "\n                    SELECT * FROM servers\n                    ;\n                    ",
   "describe": {
     "columns": [
       {
@@ -34,11 +34,11 @@
     },
     "nullable": [
       false,
-      true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false,
+      false
     ]
   },
-  "hash": "cb9ae88c639116423561edfcea871bb49aac31465ad5bd6b2908bcf54486b498"
+  "hash": "a31a5c841f5495f60fa40676d31cb1f6aa44efb4ac9a19654bd421a92fb3b8fa"
 }

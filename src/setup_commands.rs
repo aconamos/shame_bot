@@ -1,4 +1,6 @@
-use ::serenity::all::Permissions;
+//! Contains commands for configuring the bot's usage in a given server.
+
+use ::serenity::all::{CreateCommand, Permissions};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 
@@ -7,76 +9,9 @@ use crate::Data;
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-/// Sets the kennel role.
-#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
-pub async fn set_kennel_role(
-    ctx: Context<'_>,
-    #[description = "The kenneling role"] role: serenity::Role,
-) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
-
-    sqlx::query(
-        r#"
-        INSERT INTO servers(guild_id, role_id) 
-        VALUES ($1, $2)
-        ON CONFLICT (guild_id)
-        DO UPDATE SET
-            role_id=$2
-            ;
-    "#,
-    )
-    .bind(format!("{}", role.guild_id.get()))
-    .bind(format!("{}", role.id.get()))
-    .execute(pool)
-    .await?;
-
-    ctx.reply(format!(
-        "Successfully set this guild's kennel role to <@&{}>!",
-        role.id
-    ))
-    .await?;
-
-    Ok(())
-}
-
-/// Sets the command to kennel someone.
-#[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
-pub async fn set_kennel_command(
-    ctx: Context<'_>,
-    #[description = "The command to kennel someone"] command: String,
-) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
-
-    let guild_id = ctx.guild_id().expect("No guild ID???");
-
-    let re = Regex::new(r"^[a-zA-Z_]+$").unwrap();
-
-    if !re.is_match(command.as_str()) {
-        ctx.reply(format!(
-            "Cannot set the command to {}! Make sure it only uses letters!",
-            &command
-        ))
-        .await?;
-
-        return Ok(());
-    }
-
-    sqlx::query(
-        r#"
-        INSERT INTO servers(guild_id, command_name) 
-        VALUES ($1, $2)
-        ON CONFLICT (guild_id)
-        DO UPDATE SET
-            command_name=$2
-            ;
-    "#,
-    )
-    .bind(format!("{}", &guild_id))
-    .bind(&command)
-    .execute(pool)
-    .await?;
-
-    let cmd = serenity::CreateCommand::new(&command)
+/// Returns a [`CreateCommand`] that represents the general kennel command object for the Discord API.
+pub fn get_kennel_command_struct(command: &str) -> CreateCommand {
+    serenity::CreateCommand::new(command)
         .description("Punish a user!")
         .add_option(
             serenity::CreateCommandOption::new(
@@ -94,11 +29,108 @@ pub async fn set_kennel_command(
             )
             .required(true),
         )
-        .default_member_permissions(Permissions::MODERATE_MEMBERS);
+        .default_member_permissions(Permissions::MODERATE_MEMBERS)
+}
 
-    ctx.http()
-        .create_guild_commands(guild_id, &vec![cmd])
+/// Sets the kennel role.
+#[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
+pub async fn set_kennel_role(
+    ctx: Context<'_>,
+    #[description = "The kenneling role. Must be set for the command to work"] role: serenity::Role,
+) -> Result<(), Error> {
+    let Data { pool } = ctx.data();
+    let role_id = role.id.get();
+    let guild_id = role.guild_id.get();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO servers
+            (guild_id, role_id) 
+        VALUES 
+            ($1, $2)
+        ON CONFLICT 
+            (guild_id)
+        DO 
+            UPDATE SET
+                role_id=$2
+            ;
+        "#,
+        guild_id.to_string(),
+        role_id.to_string()
+    )
+    .execute(pool)
+    .await?;
+
+    ctx.reply(format!(
+        "Successfully set this guild's kennel role to <@&{}>!",
+        role.id
+    ))
+    .await?;
+
+    Ok(())
+}
+
+/// Sets the command to kennel someone.
+#[poise::command(
+    slash_command,
+    default_member_permissions = "ADMINISTRATOR",
+    guild_cooldown = 60
+)]
+pub async fn set_kennel_command(
+    ctx: Context<'_>,
+    #[description = "The command to kennel someone. Defaults to 'kennel'"] command: Option<String>,
+) -> Result<(), Error> {
+    let Data { pool } = ctx.data();
+    let command = command.unwrap_or_else(|| "kennel".to_string());
+
+    let Some(guild_id) = ctx.guild_id() else {
+        ctx.reply("This command can only be used in a server!")
+            .await?;
+
+        return Ok(());
+    };
+
+    // TODO: Figure out Discord's actual regex. It's on the docs... somewhere
+    let re = Regex::new(r"^[a-zA-Z][a-zA-Z_]+$").expect("Idiot coder coded bad code!");
+
+    if !re.is_match(&command) {
+        ctx.reply(format!(
+            "Cannot set the command to {}! Make sure it only uses letters!",
+            &command
+        ))
         .await?;
+
+        return Ok(());
+    }
+
+    let rows_affected = sqlx::query!(
+        r#"
+        UPDATE servers
+        SET 
+            command_name = $1
+        WHERE
+            guild_id = $2
+            ;
+        "#,
+        &command,
+        guild_id.get().to_string()
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        ctx.reply("Couldn't set command! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+
+        return Ok(());
+    }
+
+    let cmd = get_kennel_command_struct(&command);
+
+    println!(
+        "{:?}",
+        ctx.http().create_guild_commands(guild_id, &vec![cmd]).await
+    );
 
     ctx.reply(format!(
         "Successfully set this guild's kennel command to: /{}",
@@ -116,27 +148,37 @@ pub async fn set_kennel_message(
     #[description = "The message to send when kenneling someone. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
 ) -> Result<(), Error> {
-    sqlx::query!(
-        r#"
-            INSERT INTO servers(guild_id, command_verb) 
-            VALUES ($1, $2)
-            ON CONFLICT (guild_id)
-            DO UPDATE SET
-                command_verb=$2
-                ;            
-        "#,
-        format!(
-            "{}",
-            ctx.guild_id()
-                .ok_or("stop it stop it stop it right now")?
-                .get()
-        ),
-        message,
-    )
-    .execute(&ctx.data().pool)
-    .await?;
+    let Data { pool } = ctx.data();
 
-    ctx.reply(format!("Set message to: {}", message)).await?;
+    let Some(guild_id) = ctx.guild_id() else {
+        ctx.reply("This command can only be used in a server!")
+            .await?;
+
+        return Ok(());
+    };
+
+    let rows_affected = sqlx::query!(
+        r#"
+        UPDATE servers
+        SET
+            command_verb = $1
+        WHERE 
+            guild_id = $2
+            ;
+        "#,
+        message,
+        guild_id.get().to_string(),
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        ctx.reply("Couldn't set kennel message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+    } else {
+        ctx.reply(format!("Set kennel message to: {}", message))
+            .await?;
+    }
 
     Ok(())
 }
@@ -145,30 +187,40 @@ pub async fn set_kennel_message(
 #[poise::command(slash_command, required_permissions = "ADMINISTRATOR")]
 pub async fn set_release_message(
     ctx: Context<'_>,
-    #[description = "The message to send when someone is released from the kennel. Use $victim, $kenneler, $time, and $return to format."]
+    #[description = "The released from kennel message. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
 ) -> Result<(), Error> {
-    sqlx::query!(
-        r#"
-            INSERT INTO servers(guild_id, release_message) 
-            VALUES ($1, $2)
-            ON CONFLICT (guild_id)
-            DO UPDATE SET
-                release_message=$2
-                ;            
-        "#,
-        format!(
-            "{}",
-            ctx.guild_id()
-                .ok_or("stop it stop it stop it right now")?
-                .get()
-        ),
-        message,
-    )
-    .execute(&ctx.data().pool)
-    .await?;
+    let Data { pool } = ctx.data();
 
-    ctx.reply(format!("Set message to: {}", message)).await?;
+    let Some(guild_id) = ctx.guild_id() else {
+        ctx.reply("This command can only be used in a server!")
+            .await?;
+
+        return Ok(());
+    };
+
+    let rows_affected = sqlx::query!(
+        r#"
+        UPDATE servers
+        SET
+            release_message = $1
+        WHERE
+            guild_id = $2
+            ;
+        "#,
+        message,
+        guild_id.get().to_string(),
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if rows_affected == 0 {
+        ctx.reply("Couldn't set release message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
+    } else {
+        ctx.reply(format!("Set release message to: {}", message))
+            .await?;
+    }
 
     Ok(())
 }
