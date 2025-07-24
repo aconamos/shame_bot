@@ -1,7 +1,6 @@
 -- Adminer 5.3.0 PostgreSQL 17.5 dump
 
-\connect "kennels";
-
+DROP TABLE IF EXISTS "kennelings";
 CREATE TABLE "public"."kennelings" (
     "guild_id" character varying(128) NOT NULL,
     "victim" character varying(128) NOT NULL,
@@ -12,13 +11,18 @@ CREATE TABLE "public"."kennelings" (
 )
 WITH (oids = false);
 
+CREATE INDEX kennelings_released_at ON public.kennelings USING btree (released_at);
 
+
+DROP TABLE IF EXISTS "servers";
 CREATE TABLE "public"."servers" (
     "guild_id" character varying(128) NOT NULL,
     "command_name" text DEFAULT 'kennel' NOT NULL,
-    "command_verb" text DEFAULT 'They will be released $return.''' NOT NULL,
+    "announcement_message" text DEFAULT '$victim has been locked away in the kennel.' NOT NULL,
     "release_message" text DEFAULT '$victim has been released from the kennel.' NOT NULL,
     "role_id" character varying(128) NOT NULL,
+    "kennel_channel" character varying(128),
+    "kennel_message" text DEFAULT 'You will return $return.''' NOT NULL,
     CONSTRAINT "kennels_pkey" PRIMARY KEY ("guild_id")
 )
 WITH (oids = false);
@@ -26,4 +30,4 @@ WITH (oids = false);
 CREATE INDEX servers_guild_id_command_name ON public.servers USING btree (guild_id, command_name);
 
 
--- 2025-06-20 05:53:19 UTC
+-- 2025-07-24 20:38:01 UTC
