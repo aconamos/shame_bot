@@ -39,6 +39,7 @@ pub async fn set_kennel_role(
     #[description = "The kenneling role. Must be set for the command to work"] role: serenity::Role,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
     let role_id = role.id.get();
     let guild_id = role.guild_id.get();
 
@@ -81,6 +82,7 @@ pub async fn set_kennel_command(
     #[description = "The command to kennel someone. Defaults to 'kennel'"] command: Option<String>,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
     let command = command.unwrap_or_else(|| "kennel".to_string());
 
     let Some(guild_id) = ctx.guild_id() else {
@@ -149,6 +151,7 @@ pub async fn set_announcement_message(
     message: String,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
         ctx.reply("This command can only be used in a server!")
@@ -190,6 +193,7 @@ pub async fn set_kennel_message(
     #[description = "The message to send in the kennel when kenneling someone."] message: String,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
         ctx.reply("This command can only be used in a server!")
@@ -232,6 +236,7 @@ pub async fn set_release_message(
     message: String,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
         ctx.reply("This command can only be used in a server!")
@@ -273,6 +278,7 @@ pub async fn set_kennel_channel(
     #[description = "The kennel channel to announce in"] message: ChannelId,
 ) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
         ctx.reply("This command can only be used in a server!")

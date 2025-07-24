@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::thread;
 use std::time::Duration;
 
 use ::serenity::all::{
@@ -17,12 +19,16 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use stefan_traits::*;
 
+mod healthcheck;
 mod setup_commands;
 mod stefan_traits;
 
+/// The timeout between healthcehcks.
+const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(30);
+
 // User data, which is stored and accessible in all command invocations
 pub(crate) struct Data {
-    pool: PgPool,
+    pool: Arc<PgPool>,
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -46,6 +52,7 @@ fn get_formatted_message(
 #[poise::command(slash_command)]
 async fn time_kenneled(ctx: Context<'_>) -> Result<(), Error> {
     let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
 
     match sqlx::query!(
         r#"
@@ -87,6 +94,8 @@ async fn kennel_user(
     #[description = "User to kennel"] user: UserId,
     #[description = "Time to kennel"] time: String,
 ) -> Result<(), Error> {
+    let Data { pool } = ctx.data();
+    let pool = pool.as_ref();
     let guild_id = ctx.guild_id().expect("If this command gets called outside of a guild somehow, the world is on fire, and everyone explodes.");
 
     let Ok(dur_time) = parse_duration(&time) else {
@@ -110,7 +119,7 @@ async fn kennel_user(
         guild_id.get().to_string(),
         ctx.invoked_command_name()
     )
-    .fetch_one(&ctx.data().pool)
+    .fetch_one(pool)
     .await
     else {
         ctx.reply_ephemeral("Set kennel role first!").await?;
@@ -176,7 +185,7 @@ async fn kennel_user(
         author_id.get().to_string(),
         pg_int,
     )
-    .execute(&ctx.data().pool)
+    .execute(pool)
     .await?;
 
     // Set kennel length activity
@@ -190,7 +199,7 @@ async fn kennel_user(
             ;
         "#
     )
-    .fetch_one(&ctx.data().pool)
+    .fetch_one(pool)
     .await
     {
         if let Some(sum) = res.sum {
@@ -284,6 +293,15 @@ async fn main() {
     let token = std::env::var("BOT_TOKEN").expect("missing BOT_TOKEN");
     let postgres_url = std::env::var("DATABASE_URL").expect("missing DATABASE_URL");
     let intents = serenity::GatewayIntents::non_privileged();
+    let pool = Arc::new(
+        PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&postgres_url)
+            .await
+            .expect("Couldn't connect to database! Aborting..."),
+    );
+    // Pool reference for the healthcheck thread
+    let thread_pool = Arc::clone(&pool);
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -301,18 +319,13 @@ async fn main() {
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                let pool = PgPoolOptions::new()
-                    .max_connections(5)
-                    .connect(&postgres_url)
-                    .await?;
-
                 let data = sqlx::query!(
                     r#"
                     SELECT * FROM servers
                     ;
                     "#
                 )
-                .fetch_all(&pool)
+                .fetch_all(pool.as_ref())
                 .await?;
 
                 for row in data {
@@ -337,7 +350,7 @@ async fn main() {
                         ;
                     "#
                 )
-                .fetch_one(&pool)
+                .fetch_one(pool.as_ref())
                 .await
                 {
                     if let Some(sum) = res.sum {
@@ -353,13 +366,33 @@ async fn main() {
                 }
 
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data { pool })
+                Ok(Data {
+                    pool: Arc::clone(&pool),
+                })
             })
         })
         .build();
 
-    let client = serenity::ClientBuilder::new(token, intents)
+    let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
-        .await;
-    client.unwrap().start().await.unwrap();
+        .await
+        .unwrap();
+
+    let thread_http = Arc::clone(&client.http);
+
+    let _ = tokio::spawn(async move {
+        let http = thread_http.as_ref();
+        let pool = thread_pool.as_ref();
+
+        loop {
+            if let Err(e) = healthcheck::check(http, pool).await {
+                println!("Healthcheck failed!: {:?}", e);
+            } else {
+                println!("Healthcheck succeeded!");
+            }
+            tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
+        }
+    });
+
+    client.start().await.unwrap();
 }
