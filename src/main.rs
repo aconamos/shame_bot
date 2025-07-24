@@ -146,10 +146,10 @@ async fn kennel_user(
     member.add_role(http, &role_id).await?;
 
     // Send the announcement message in the channel where kenneling was executed
-    let reply_handle = ctx.reply(&announcement).await?;
+    let announcement_reply_handle = ctx.reply(&announcement).await?;
 
     // Send the kenneling message in the dedicated kennel channel, if it exists
-    let mut kennel_handle: Option<Message> = None;
+    let mut kennel_reply_handle: Option<Message> = None;
 
     if let Some(kennel_channel) = data.kennel_channel {
         let kennel_channel = kennel_channel
@@ -157,7 +157,9 @@ async fn kennel_user(
             .expect("Invalid kennel_channel data inserted into database!");
 
         if let Ok(channel) = http.get_channel(kennel_channel.into()).await {
-            kennel_handle = channel.id().say(http, &kennel_message).await.ok();
+            if channel.id() != ctx.channel_id() {
+                kennel_reply_handle = channel.id().say(http, &kennel_message).await.ok();
+            }
         }
     }
 
@@ -217,11 +219,11 @@ async fn kennel_user(
     );
 
     // For now, both will be the same release message. Maybe this will be changed?
-    reply_handle
+    announcement_reply_handle
         .edit(ctx, CreateReply::default().content(&release_message))
         .await?;
 
-    if let Some(mut kennel_msg) = kennel_handle {
+    if let Some(mut kennel_msg) = kennel_reply_handle {
         let _ = kennel_msg
             .edit(ctx, EditMessage::default().content(release_message))
             .await;
