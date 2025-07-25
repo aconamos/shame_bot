@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use poise::{ApplicationContext, CreateReply, FrameworkContext};
-use serenity::all::{ActivityData, EditMessage, FullEvent, Interaction, Message, RoleId, UserId};
+use serenity::all::{EditMessage, FullEvent, Interaction, Message, RoleId, UserId};
 use serenity::client::Context as SerenityCtx;
 use sqlx::postgres::types::PgInterval;
 
@@ -56,7 +56,7 @@ async fn kennel_user(
             .expect("Invalid role_id data inserted into database! WTF?"),
     );
     let author_id = ctx.author().id;
-    let return_timestamp = chrono::Utc::now() + dur_time.clone();
+    let return_timestamp = chrono::Utc::now() + dur_time;
     let announcement = get_formatted_message(
         &data.announcement_message,
         &user,
@@ -168,7 +168,7 @@ pub async fn wildcard_command_handler(
             args: &command_interaction.data.options(),
             has_sent_initial_response: &std::sync::atomic::AtomicBool::new(false),
             framework: framework_ctx,
-            parent_commands: &vec![],
+            parent_commands: &[],
             command: &kennel_user(),
             invocation_data: &tokio::sync::Mutex::new(Box::new(()) as _),
             __non_exhaustive: (),

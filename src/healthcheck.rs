@@ -65,7 +65,7 @@ async fn validate_kenneling(
 
     let victim = UserId::from(kenneling.victim.parse::<u64>()?);
     let guild_id = GuildId::from(kenneling.guild_id.parse::<u64>()?);
-    let kenneler = UserId::from(kenneling.kenneler.parse::<u64>()?);
+    let _kenneler = UserId::from(kenneling.kenneler.parse::<u64>()?);
 
     let guild = http.get_guild(guild_id).await?;
     let victim = guild.member(http, victim).await?;

@@ -34,17 +34,17 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 pub fn get_formatted_message(
-    message: &String,
+    message: &str,
     victim: &UserId,
     kenneler: &UserId,
-    time: &String,
-    return_time: &String,
+    time: &str,
+    return_time: &str,
 ) -> String {
     message
         .replace("$victim", format!("<@{}>", victim).as_str())
         .replace("$kenneler", format!("<@{}>", kenneler).as_str())
-        .replace("$time", &time)
-        .replace("$return", &return_time)
+        .replace("$time", time)
+        .replace("$return", return_time)
 }
 
 pub async fn set_activity(ctx: &serenity::prelude::Context, pool: &PgPool) {
