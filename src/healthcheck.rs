@@ -4,6 +4,7 @@ use serenity::all::{GuildId, Http, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval, types::time::PrimitiveDateTime};
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct Kenneling {
     guild_id: String,
     kennel_length: PgInterval,
