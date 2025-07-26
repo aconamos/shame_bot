@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT *\n            FROM kennelings\n            WHERE\n                released_at > CURRENT_TIMESTAMP AND\n                guild_id = $1\n                ;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "guild_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "victim",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "kennel_length",
+        "type_info": "Interval"
+      },
+      {
+        "ordinal": 3,
+        "name": "kenneled_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 4,
+        "name": "kenneler",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "released_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 6,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f32aa842019390d9bf4e39df913fe81bdf0082b73db74478991fb3fd5369e603"
+}

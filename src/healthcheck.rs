@@ -3,16 +3,17 @@ use std::time::Duration;
 use serenity::all::{GuildId, Http, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval, types::time::PrimitiveDateTime};
 
+// TODO: find a better spot for this struct
 #[derive(Debug)]
 #[allow(dead_code)]
-struct Kenneling {
-    guild_id: String,
-    kennel_length: PgInterval,
-    kenneled_at: PrimitiveDateTime,
-    kenneler: String,
-    released_at: PrimitiveDateTime,
-    victim: String,
-    id: i32,
+pub struct Kenneling {
+    pub guild_id: String,
+    pub kennel_length: PgInterval,
+    pub kenneled_at: PrimitiveDateTime,
+    pub kenneler: String,
+    pub released_at: PrimitiveDateTime,
+    pub victim: String,
+    pub id: i32,
 }
 
 pub async fn check(

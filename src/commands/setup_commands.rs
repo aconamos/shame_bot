@@ -1,6 +1,6 @@
 //! Contains commands for configuring the bot's usage in a given server.
 
-use ::serenity::all::{ChannelId, CreateCommand, Permissions};
+use ::serenity::all::{ChannelId, CreateCommand, Permissions, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 
@@ -42,6 +42,54 @@ pub async fn set_kennel_role(
     let pool = pool.as_ref();
     let role_id = role.id.get();
     let guild_id = role.guild_id.get();
+
+    if let Ok(res) = sqlx::query!(
+        r#"
+        SELECT
+            role_id
+        FROM
+            servers
+        WHERE
+            guild_id=$1
+            ;
+        "#,
+        guild_id.to_string(),
+    )
+    .fetch_one(pool)
+    .await
+    {
+        let guild = ctx
+            .partial_guild()
+            .await
+            .expect("Why is this called outside of a guild");
+        let existing_role_id = res.role_id.parse::<u64>().expect("Wacced out role id");
+        let existing_role_id = RoleId::new(existing_role_id);
+
+        let active_kennelings = sqlx::query_as!(
+            crate::healthcheck::Kenneling,
+            r#"
+            SELECT *
+            FROM kennelings
+            WHERE
+                released_at > CURRENT_TIMESTAMP AND
+                guild_id = $1
+                ;
+            "#,
+            guild_id.to_string()
+        )
+        .fetch_all(pool)
+        .await?;
+
+        for kenneling in active_kennelings {
+            let member = guild
+                .member(ctx.http(), kenneling.victim.parse::<u64>().expect("rolefj"))
+                .await
+                .expect("Member must have left!");
+
+            member.remove_role(ctx.http(), existing_role_id).await?;
+            member.add_role(ctx.http(), role_id).await?;
+        }
+    }
 
     sqlx::query!(
         r#"
