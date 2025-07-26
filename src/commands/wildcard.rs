@@ -4,6 +4,7 @@ use poise::{ApplicationContext, CreateReply, FrameworkContext};
 use serenity::all::{EditMessage, FullEvent, Interaction, Message, RoleId, UserId};
 use serenity::client::Context as SerenityCtx;
 use sqlx::postgres::types::PgInterval;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::set_activity;
 use crate::{Context, Data, Error, get_formatted_message, util::stefan_traits::*};
@@ -73,6 +74,13 @@ async fn kennel_user(
     );
     let pg_int = PgInterval::try_from(dur_time).expect("Some fuckwit put in a microsecond value?");
 
+    trace!(
+        "{} is kenneling user {} for {}...",
+        ctx.author().display_name(),
+        member.display_name(),
+        &time
+    );
+
     member.add_role(http, &role_id).await?;
 
     // Send the announcement message in the channel where kenneling was executed
@@ -113,6 +121,8 @@ async fn kennel_user(
 
     tokio::time::sleep(dur_time).await;
 
+    trace!("User {} is being released...", member.display_name());
+
     member.remove_role(http, &role_id).await?;
 
     let release_message = get_formatted_message(
@@ -149,7 +159,6 @@ pub async fn wildcard_command_handler(
         interaction: Interaction::Command(command_interaction),
     } = event
     {
-        println!("{}", command_interaction.data.name);
         // This isn't strictly bulletproof, but it works well enough as long as the only
         // commands we want to ignore in this event listener are the globally registered
         // ones.

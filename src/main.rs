@@ -6,6 +6,9 @@ use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use sqlx::{PgPool, postgres::PgPoolOptions};
+use tracing::{debug, error, info, trace, warn};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::commands::utility::time_kenneled;
 use crate::commands::wildcard::wildcard_command_handler;
@@ -73,8 +76,14 @@ pub async fn set_activity(ctx: &serenity::prelude::Context, pool: &PgPool) {
 async fn main() {
     dotenv().ok();
 
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
+        .init();
+
     let token = std::env::var("BOT_TOKEN").expect("missing BOT_TOKEN");
     let postgres_url = std::env::var("DATABASE_URL").expect("missing DATABASE_URL");
+    debug!("Connecting to database: {postgres_url}");
     let intents = serenity::GatewayIntents::non_privileged();
     let pool = Arc::new(
         PgPoolOptions::new()
@@ -98,6 +107,18 @@ async fn main() {
                 time_kenneled(),
             ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
+            on_error: |error| {
+                async fn error_cb(error: poise::FrameworkError<'_, Data, Error>) {
+                    // Get rid of the unknown interaction errors because the kennel command triggers this.
+                    if let poise::FrameworkError::UnknownInteraction { .. } = error {
+                        return;
+                    }
+
+                    error!("{}", error.to_string())
+                }
+
+                Box::pin(error_cb(error))
+            },
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
@@ -110,9 +131,13 @@ async fn main() {
                 )
                 .fetch_all(pool.as_ref())
                 .await?;
-
+                info!("Setting up guild commands...");
                 for row in data {
                     let cmd = get_kennel_command_struct(&row.command_name);
+                    debug!(
+                        "Initializing kennel command \"{}\" for guild {}",
+                        &row.command_name, &row.guild_id
+                    );
 
                     let guild_id = row
                         .guild_id
@@ -141,19 +166,20 @@ async fn main() {
 
     let thread_http = Arc::clone(&client.http);
 
+    // TODO: Should this be moved to inside the ready callback?
     let _ = tokio::spawn(async move {
         let http = thread_http.as_ref();
         let pool = thread_pool.as_ref();
 
         loop {
             if let Err(e) = healthcheck::check(http, pool).await {
-                println!("Healthcheck failed!: {:?}", e);
-            } else {
-                println!("Healthcheck succeeded!");
+                error!("Healthcheck failed!: {}", (*e).to_string());
             }
             tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
         }
     });
 
+    info!("Bot starting...");
     client.start().await.unwrap();
+    info!("Exiting...");
 }

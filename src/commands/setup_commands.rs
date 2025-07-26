@@ -3,6 +3,7 @@
 use ::serenity::all::{ChannelId, CreateCommand, Permissions, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::Data;
 
@@ -80,7 +81,14 @@ pub async fn set_kennel_role(
         .fetch_all(pool)
         .await?;
 
+        trace!(
+            "set_kennel_role called: Updating active kennelings for guild {}",
+            guild.name
+        );
+
         for kenneling in active_kennelings {
+            trace!("Updating kenneling: {kenneling:?}");
+
             let member = guild
                 .member(ctx.http(), kenneling.victim.parse::<u64>().expect("rolefj"))
                 .await
@@ -177,7 +185,7 @@ pub async fn set_kennel_command(
 
     let cmd = get_kennel_command_struct(&command);
 
-    println!(
+    debug!(
         "{:?}",
         ctx.http().create_guild_commands(guild_id, &vec![cmd]).await
     );

@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use serenity::all::{GuildId, Http, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval, types::time::PrimitiveDateTime};
+use tracing::{debug, error, info, trace, warn};
 
 // TODO: find a better spot for this struct
 #[derive(Debug)]
@@ -33,7 +34,6 @@ pub async fn check(
     .fetch_all(pool)
     .await?;
 
-    println!("WTF IT'S HAPPENING!");
     for kenneling in active_kennelings {
         let kennel_role = sqlx::query!(
             r#"
@@ -62,8 +62,6 @@ async fn validate_kenneling(
     kenneling: Kenneling,
     kennel_role: RoleId,
 ) -> Result<(), Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>> {
-    println!("{kenneling:?}");
-
     let victim = UserId::from(kenneling.victim.parse::<u64>()?);
     let guild_id = GuildId::from(kenneling.guild_id.parse::<u64>()?);
     let _kenneler = UserId::from(kenneling.kenneler.parse::<u64>()?);
@@ -72,7 +70,7 @@ async fn validate_kenneling(
     let victim = guild.member(http, victim).await?;
 
     if !victim.roles.iter().any(|role| role == &kennel_role) {
-        println!("Stale kenneling detected!");
+        info!("Stale kenneling detected! {kenneling:?}");
 
         let t = kenneling.kenneled_at.as_utc().unix_timestamp();
         let now = chrono::Utc::now().timestamp();
@@ -96,8 +94,8 @@ async fn validate_kenneling(
         .execute(pool)
         .await?;
 
-        println!(
-            "Kenneling ended. Time served: {}",
+        info!(
+            "Kenneling ended early. Time served: {}",
             humantime::format_duration(dur_served)
         );
     }
