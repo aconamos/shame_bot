@@ -12,7 +12,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::commands::utility::time_kenneled;
 use crate::commands::wildcard::wildcard_command_handler;
-use crate::util::pgint_dur::PgIntervalToDuration;
+use shame_bot::util::pgint_dur::PgIntervalToDuration;
 
 mod healthcheck;
 mod commands {
@@ -20,24 +20,20 @@ mod commands {
     pub mod utility;
     pub mod wildcard;
 }
-mod util {
-    pub mod pgint_dur;
-    pub mod stefan_traits;
-}
 
 /// The timeout between healthcehcks.
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub fn get_formatted_message(
     message: &str,
-    victim: &UserId,
-    kenneler: &UserId,
+    victim_id: &UserId,
+    author_id: &UserId,
     time: &str,
     return_time: &str,
 ) -> String {
     message
-        .replace("$victim", format!("<@{}>", victim).as_str())
-        .replace("$kenneler", format!("<@{}>", kenneler).as_str())
+        .replace("$victim", format!("<@{}>", victim_id).as_str())
+        .replace("$kenneler", format!("<@{}>", author_id).as_str())
         .replace("$time", time)
         .replace("$return", return_time)
 }

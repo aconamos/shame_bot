@@ -58,10 +58,12 @@ async fn validate_kenneling(
     if !victim.roles.iter().any(|role| role == &kennel_role) {
         tracing::info!("Stale kenneling detected! {kenneling:?}");
 
-        let t = kenneling.kenneled_at.as_utc().unix_timestamp();
-        let now = chrono::Utc::now().timestamp();
+        let kenneled_at = kenneling.kenneled_at.and_utc();
+        let now = chrono::Utc::now();
 
-        let dur_served = Duration::from_secs((now - t) as u64);
+        let dur_served = now - kenneled_at;
+        let dur_served = Duration::from_secs(dur_served.num_seconds() as u64)
+            + Duration::from_micros(dur_served.subsec_micros() as u64);
 
         let time_served = PgInterval::try_from(dur_served)?;
 

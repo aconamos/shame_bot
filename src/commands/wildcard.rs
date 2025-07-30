@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use poise::{ApplicationContext, CreateReply, FrameworkContext};
-use serenity::all::{EditMessage, FullEvent, Interaction, Message, RoleId, UserId};
+use serenity::all::{EditMessage, FullEvent, Http, Interaction, Message, RoleId, User, UserId};
 use serenity::client::Context as SerenityCtx;
-use shame_bot::Context;
+use shame_bot::{Context, string_to_id};
 use sqlx::postgres::types::PgInterval;
 
 use crate::set_activity;
-use crate::{Error, ShameBotData, get_formatted_message, util::stefan_traits::*};
+use crate::{Error, ShameBotData, get_formatted_message};
+use shame_bot::util::stefan_traits::*;
 
 /// Kennels someone.
 #[poise::command(slash_command, required_permissions = "MODERATE_MEMBERS")]
@@ -51,11 +52,7 @@ async fn kennel_user(
 
     let http = ctx.http();
     let member = guild_id.member(http, user).await?;
-    let role_id = RoleId::new(
-        data.role_id
-            .parse::<u64>()
-            .expect("Invalid role_id data inserted into database! WTF?"),
-    );
+    let role_id: RoleId = string_to_id(&data.role_id)?;
     let author_id = ctx.author().id;
     let return_timestamp = chrono::Utc::now() + dur_time;
     let announcement = get_formatted_message(
@@ -192,4 +189,13 @@ pub async fn wildcard_command_handler(
     }
 
     Ok(())
+}
+
+async fn send_kennel_message(
+    http: &Http,
+    author: &UserId,
+    victim: &UserId,
+    duration_message: &str,
+    return_time: &str,
+) {
 }
