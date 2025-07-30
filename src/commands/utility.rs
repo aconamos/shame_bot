@@ -1,11 +1,12 @@
 use humantime::format_duration;
+use shame_bot::Context;
 
-use crate::{Context, Data, Error, util::pgint_dur::PgIntervalToDuration};
+use crate::{ShameBotData, Error, util::pgint_dur::PgIntervalToDuration};
 
 /// Tells you the total time kenneled in case you can't read the status
 #[poise::command(slash_command)]
 pub async fn time_kenneled(ctx: Context<'_>) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
     match sqlx::query!(

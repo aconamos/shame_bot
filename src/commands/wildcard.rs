@@ -3,11 +3,11 @@ use std::time::Duration;
 use poise::{ApplicationContext, CreateReply, FrameworkContext};
 use serenity::all::{EditMessage, FullEvent, Interaction, Message, RoleId, UserId};
 use serenity::client::Context as SerenityCtx;
+use shame_bot::Context;
 use sqlx::postgres::types::PgInterval;
-use tracing::{debug, error, info, trace, warn};
 
 use crate::set_activity;
-use crate::{Context, Data, Error, get_formatted_message, util::stefan_traits::*};
+use crate::{Error, ShameBotData, get_formatted_message, util::stefan_traits::*};
 
 /// Kennels someone.
 #[poise::command(slash_command, required_permissions = "MODERATE_MEMBERS")]
@@ -16,7 +16,7 @@ async fn kennel_user(
     #[description = "User to kennel"] user: UserId,
     #[description = "Time to kennel"] time: String,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.guild_id().expect("If this command gets called outside of a guild somehow, the world is on fire, and everyone explodes.");
 
@@ -74,7 +74,7 @@ async fn kennel_user(
     );
     let pg_int = PgInterval::try_from(dur_time).expect("Some fuckwit put in a microsecond value?");
 
-    trace!(
+    tracing::trace!(
         "{} is kenneling user {} for {}...",
         ctx.author().display_name(),
         member.display_name(),
@@ -121,7 +121,7 @@ async fn kennel_user(
 
     tokio::time::sleep(dur_time).await;
 
-    trace!("User {} is being released...", member.display_name());
+    tracing::trace!("User {} is being released...", member.display_name());
 
     member.remove_role(http, &role_id).await?;
 
@@ -152,8 +152,8 @@ async fn kennel_user(
 pub async fn wildcard_command_handler(
     ctx: &SerenityCtx,
     event: &FullEvent,
-    framework_ctx: FrameworkContext<'_, Data, Error>,
-    data: &Data,
+    framework_ctx: FrameworkContext<'_, ShameBotData, Error>,
+    data: &ShameBotData,
 ) -> Result<(), Error> {
     if let FullEvent::InteractionCreate {
         interaction: Interaction::Command(command_interaction),

@@ -5,8 +5,8 @@ use ::serenity::all::{ActivityData, CacheHttp, UserId};
 use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
+use shame_bot::{Error, ShameBotData};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use tracing::{debug, error, info, trace, warn};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -27,14 +27,6 @@ mod util {
 
 /// The timeout between healthcehcks.
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(30);
-
-// User data, which is stored and accessible in all command invocations
-pub struct Data {
-    pool: Arc<PgPool>,
-}
-
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 pub fn get_formatted_message(
     message: &str,
@@ -83,7 +75,7 @@ async fn main() {
 
     let token = std::env::var("BOT_TOKEN").expect("missing BOT_TOKEN");
     let postgres_url = std::env::var("DATABASE_URL").expect("missing DATABASE_URL");
-    debug!("Connecting to database: {postgres_url}");
+    tracing::debug!("Connecting to database: {postgres_url}");
     let intents = serenity::GatewayIntents::non_privileged();
     let pool = Arc::new(
         PgPoolOptions::new()
@@ -108,13 +100,13 @@ async fn main() {
             ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             on_error: |error| {
-                async fn error_cb(error: poise::FrameworkError<'_, Data, Error>) {
+                async fn error_cb(error: poise::FrameworkError<'_, ShameBotData, Error>) {
                     // Get rid of the unknown interaction errors because the kennel command triggers this.
                     if let poise::FrameworkError::UnknownInteraction { .. } = error {
                         return;
                     }
 
-                    error!("{}", error.to_string())
+                    tracing::error!("{}", error.to_string())
                 }
 
                 Box::pin(error_cb(error))
@@ -131,12 +123,13 @@ async fn main() {
                 )
                 .fetch_all(pool.as_ref())
                 .await?;
-                info!("Setting up guild commands...");
+                tracing::info!("Setting up guild commands...");
                 for row in data {
-                    let cmd = get_kennel_command_struct(&row.command_name);
-                    debug!(
+                    let cmd = shame_bot::get_kennel_command_struct(&row.command_name);
+                    tracing::debug!(
                         "Initializing kennel command \"{}\" for guild {}",
-                        &row.command_name, &row.guild_id
+                        &row.command_name,
+                        &row.guild_id
                     );
 
                     let guild_id = row
@@ -152,7 +145,9 @@ async fn main() {
                 set_activity(ctx, pool.as_ref()).await;
 
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(Data {
+
+                tracing::info!("Bot started!");
+                Ok(ShameBotData {
                     pool: Arc::clone(&pool),
                 })
             })
@@ -173,13 +168,13 @@ async fn main() {
 
         loop {
             if let Err(e) = healthcheck::check(http, pool).await {
-                error!("Healthcheck failed!: {}", (*e).to_string());
+                tracing::error!("Healthcheck failed!: {}", (*e).to_string());
             }
             tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
         }
     });
 
-    info!("Bot starting...");
+    tracing::info!("Bot starting...");
     client.start().await.unwrap();
-    info!("Exiting...");
+    tracing::info!("Exiting...");
 }

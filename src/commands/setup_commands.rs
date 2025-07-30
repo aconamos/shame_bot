@@ -5,33 +5,10 @@ use poise::serenity_prelude as serenity;
 use regex::Regex;
 use tracing::{debug, error, info, trace, warn};
 
-use crate::Data;
+use crate::ShameBotData;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, Data, Error>;
-
-/// Returns a [`CreateCommand`] that represents the general kennel command object for the Discord API.
-pub fn get_kennel_command_struct(command: &str) -> CreateCommand {
-    serenity::CreateCommand::new(command)
-        .description("Punish a user!")
-        .add_option(
-            serenity::CreateCommandOption::new(
-                serenity::CommandOptionType::User,
-                "user",
-                "User to be punished",
-            )
-            .required(true),
-        )
-        .add_option(
-            serenity::CreateCommandOption::new(
-                serenity::CommandOptionType::String,
-                "time",
-                "How long to punish the user",
-            )
-            .required(true),
-        )
-        .default_member_permissions(Permissions::MODERATE_MEMBERS)
-}
+type Context<'a> = poise::Context<'a, ShameBotData, Error>;
 
 /// Sets the kennel role.
 #[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
@@ -39,7 +16,7 @@ pub async fn set_kennel_role(
     ctx: Context<'_>,
     #[description = "The kenneling role. Must be set for the command to work"] role: serenity::Role,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let role_id = role.id.get();
     let guild_id = role.guild_id.get();
@@ -67,7 +44,7 @@ pub async fn set_kennel_role(
         let existing_role_id = RoleId::new(existing_role_id);
 
         let active_kennelings = sqlx::query_as!(
-            crate::healthcheck::Kenneling,
+            shame_bot::KennelingRow,
             r#"
             SELECT *
             FROM kennelings
@@ -137,7 +114,7 @@ pub async fn set_kennel_command(
     ctx: Context<'_>,
     #[description = "The command to kennel someone. Defaults to 'kennel'"] command: Option<String>,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let command = command.unwrap_or_else(|| "kennel".to_string());
 
@@ -183,7 +160,7 @@ pub async fn set_kennel_command(
         return Ok(());
     }
 
-    let cmd = get_kennel_command_struct(&command);
+    let cmd = shame_bot::get_kennel_command_struct(&command);
 
     debug!(
         "{:?}",
@@ -206,7 +183,7 @@ pub async fn set_announcement_message(
     #[description = "The message to send when kenneling someone. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
@@ -248,7 +225,7 @@ pub async fn set_kennel_message(
     ctx: Context<'_>,
     #[description = "The message to send in the kennel when kenneling someone."] message: String,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
@@ -291,7 +268,7 @@ pub async fn set_release_message(
     #[description = "The released from kennel message. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
@@ -333,7 +310,7 @@ pub async fn set_kennel_channel(
     ctx: Context<'_>,
     #[description = "The kennel channel to announce in"] message: ChannelId,
 ) -> Result<(), Error> {
-    let Data { pool } = ctx.data();
+    let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
     let Some(guild_id) = ctx.guild_id() else {
