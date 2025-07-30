@@ -3,6 +3,7 @@
 use ::serenity::all::{ChannelId, CreateCommand, Permissions, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
+use shame_bot::Kenneling;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::ShameBotData;
@@ -40,10 +41,9 @@ pub async fn set_kennel_role(
             .partial_guild()
             .await
             .expect("Why is this called outside of a guild");
-        let existing_role_id = res.role_id.parse::<u64>().expect("Wacced out role id");
-        let existing_role_id = RoleId::new(existing_role_id);
+        let existing_role_id: RoleId = shame_bot::string_to_id(&res.role_id)?;
 
-        let active_kennelings = sqlx::query_as!(
+        let active_kennelings: Vec<Kenneling> = sqlx::query_as!(
             shame_bot::KennelingRow,
             r#"
             SELECT *
@@ -56,7 +56,10 @@ pub async fn set_kennel_role(
             guild_id.to_string()
         )
         .fetch_all(pool)
-        .await?;
+        .await?
+        .iter()
+        .map(|kr| kr.try_into().expect("malformed data inserted"))
+        .collect();
 
         trace!(
             "set_kennel_role called: Updating active kennelings for guild {}",
@@ -67,7 +70,7 @@ pub async fn set_kennel_role(
             trace!("Updating kenneling: {kenneling:?}");
 
             let member = guild
-                .member(ctx.http(), kenneling.victim.parse::<u64>().expect("rolefj"))
+                .member(ctx.http(), kenneling.victim)
                 .await
                 .expect("Member must have left!");
 

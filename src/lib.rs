@@ -2,7 +2,8 @@ use std::{num::ParseIntError, time::Duration};
 
 use chrono::{DateTime, Utc};
 use serenity::all::{
-    CommandOptionType, CreateCommand, CreateCommandOption, GuildId, Permissions, UserId,
+    ChannelId, CommandOptionType, CreateCommand, CreateCommandOption, GuildId, Permissions, RoleId,
+    UserId,
 };
 use sqlx::{FromRow, Row, postgres::PgRow};
 
@@ -33,6 +34,8 @@ pub struct KennelingRow {
     pub id: i32,
 }
 
+/// Information about a given Kenneling from the database.
+#[derive(Debug)]
 pub struct Kenneling {
     pub guild_id: GuildId,
     pub kennel_length: Duration,
@@ -59,10 +62,6 @@ impl TryFrom<&KennelingRow> for Kenneling {
     }
 }
 
-pub fn string_to_id<Id: From<u64>>(string: &str) -> Result<Id, ParseIntError> {
-    Ok(string.parse::<u64>()?.into())
-}
-
 /// Represents the fields available from a query to the `servers` table.
 #[derive(Debug)]
 pub struct ServerRow {
@@ -73,6 +72,39 @@ pub struct ServerRow {
     pub role_id: String,
     pub kennel_channel: String,
     pub kennel_message: String,
+}
+
+/// Information about a given Server from the database.
+#[derive(Debug)]
+pub struct Server {
+    pub guild_id: GuildId,
+    pub command_name: String,
+    pub announcement_message: String,
+    pub release_message: String,
+    pub role_id: RoleId,
+    pub kennel_channel: ChannelId,
+    pub kennel_message: String,
+}
+
+impl TryFrom<ServerRow> for Server {
+    type Error = Box<dyn std::error::Error>;
+
+    fn try_from(row: ServerRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            guild_id: string_to_id(&row.guild_id)?,
+            role_id: string_to_id(&row.role_id)?,
+            kennel_channel: string_to_id(&row.kennel_channel)?,
+            command_name: row.command_name,
+            announcement_message: row.announcement_message,
+            release_message: row.release_message,
+            kennel_message: row.kennel_message,
+        })
+    }
+}
+
+/// Helper to parse a string into a u64 and then turn it into something.
+pub fn string_to_id<Id: From<u64>>(string: &str) -> Result<Id, ParseIntError> {
+    Ok(string.parse::<u64>()?.into())
 }
 
 /// Returns a [`CreateCommand`] that represents the general kennel command (per guild) object for the Discord API.

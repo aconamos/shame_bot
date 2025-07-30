@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use ::serenity::all::{ActivityData, CacheHttp, UserId};
+use ::serenity::all::{ActivityData, CacheHttp, GuildId, UserId};
 use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
@@ -128,10 +128,7 @@ async fn main() {
                         &row.guild_id
                     );
 
-                    let guild_id = row
-                        .guild_id
-                        .parse::<u64>()
-                        .expect("Malformed guild_id data was inserted into the database! WTF?");
+                    let guild_id: GuildId = shame_bot::string_to_id(&row.guild_id)?;
 
                     ctx.http()
                         .create_guild_commands(guild_id.into(), &vec![cmd])

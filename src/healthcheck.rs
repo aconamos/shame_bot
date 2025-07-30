@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use serenity::all::{GuildId, Http, RoleId, UserId};
+use shame_bot::{Kenneling, string_to_id};
 use sqlx::{PgPool, postgres::types::PgInterval};
 
 pub async fn check(
     http: &Http,
     pool: &PgPool,
 ) -> Result<(), Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>> {
-    let active_kennelings = sqlx::query_as!(
+    let active_kennelings: Vec<shame_bot::Kenneling> = sqlx::query_as!(
         shame_bot::KennelingRow,
         r#"
         SELECT *
@@ -18,7 +19,10 @@ pub async fn check(
         "#
     )
     .fetch_all(pool)
-    .await?;
+    .await?
+    .iter()
+    .map(|kr| kr.try_into().expect("malformed data inserted"))
+    .collect();
 
     for kenneling in active_kennelings {
         let kennel_role = sqlx::query!(
@@ -29,12 +33,12 @@ pub async fn check(
             guild_id = $1
             ;
         "#,
-            kenneling.guild_id,
+            kenneling.guild_id.to_string(),
         )
         .fetch_one(pool)
         .await?;
 
-        let kennel_role = RoleId::from(kennel_role.role_id.parse::<u64>()?);
+        let kennel_role: RoleId = string_to_id(&kennel_role.role_id)?;
 
         validate_kenneling(http, pool, kenneling, kennel_role).await?;
     }
@@ -45,12 +49,12 @@ pub async fn check(
 async fn validate_kenneling(
     http: &Http,
     pool: &PgPool,
-    kenneling: shame_bot::KennelingRow,
+    kenneling: Kenneling,
     kennel_role: RoleId,
 ) -> Result<(), Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>> {
-    let victim = UserId::from(kenneling.victim.parse::<u64>()?);
-    let guild_id = GuildId::from(kenneling.guild_id.parse::<u64>()?);
-    let _kenneler = UserId::from(kenneling.kenneler.parse::<u64>()?);
+    let Kenneling {
+        victim, guild_id, ..
+    } = kenneling;
 
     let guild = http.get_guild(guild_id).await?;
     let victim = guild.member(http, victim).await?;
@@ -58,7 +62,7 @@ async fn validate_kenneling(
     if !victim.roles.iter().any(|role| role == &kennel_role) {
         tracing::info!("Stale kenneling detected! {kenneling:?}");
 
-        let kenneled_at = kenneling.kenneled_at.and_utc();
+        let kenneled_at = kenneling.kenneled_at;
         let now = chrono::Utc::now();
 
         let dur_served = now - kenneled_at;

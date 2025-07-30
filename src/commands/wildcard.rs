@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use poise::{ApplicationContext, CreateReply, FrameworkContext};
-use serenity::all::{EditMessage, FullEvent, Http, Interaction, Message, RoleId, User, UserId};
+use serenity::all::{
+    ChannelId, EditMessage, FullEvent, Http, Interaction, Message, RoleId, User, UserId,
+};
 use serenity::client::Context as SerenityCtx;
 use shame_bot::{Context, string_to_id};
 use sqlx::postgres::types::PgInterval;
@@ -87,11 +89,10 @@ async fn kennel_user(
     let mut kennel_reply_handle: Option<Message> = None;
 
     if let Some(kennel_channel) = data.kennel_channel {
-        let kennel_channel = kennel_channel
-            .parse::<u64>()
-            .expect("Invalid kennel_channel data inserted into database!");
+        let kennel_channel: ChannelId =
+            string_to_id(&kennel_channel).expect("malformed data inserted");
 
-        if let Ok(channel) = http.get_channel(kennel_channel.into()).await {
+        if let Ok(channel) = http.get_channel(kennel_channel).await {
             if channel.id() != ctx.channel_id() {
                 kennel_reply_handle = channel.id().say(http, &kennel_message).await.ok();
             }
