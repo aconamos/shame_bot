@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use serenity::all::{GuildId, Http, RoleId, UserId};
+use serenity::all::{Http, RoleId};
 use shame_bot::{string_to_id, types::*};
 use sqlx::{PgPool, postgres::types::PgInterval};
 

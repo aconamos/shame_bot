@@ -1,13 +1,9 @@
-use std::{num::ParseIntError, time::Duration};
+use std::num::ParseIntError;
 
-use poise::{CreateReply, ReplyHandle};
 use serenity::all::{
-    ChannelId, CommandOptionType, CreateCommand, CreateCommandOption, CreateMessage, EditMessage,
-    GuildId, Http, Permissions, RoleId, UserId,
+    CommandOptionType, CreateCommand, CreateCommandOption, Permissions, UserId,
 };
-use sqlx::{FromRow, PgPool, Row, postgres::PgRow};
 
-use crate::util::{pgint_dur::PgIntervalToDuration as _, stefan_traits::GetRelativeTimestamp};
 
 pub mod util {
     pub mod pgint_dur;
@@ -61,8 +57,8 @@ pub fn get_formatted_message(
     return_time: &str,
 ) -> String {
     message
-        .replace("$victim", format!("<@{}>", victim_id).as_str())
-        .replace("$kenneler", format!("<@{}>", author_id).as_str())
+        .replace("$victim", format!("<@{victim_id}>").as_str())
+        .replace("$kenneler", format!("<@{author_id}>").as_str())
         .replace("$time", time)
         .replace("$return", return_time)
 }

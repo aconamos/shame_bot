@@ -14,6 +14,7 @@ impl GetRelativeTimestamp for chrono::DateTime<chrono::Utc> {
 }
 
 pub trait SendReplyEphemeral {
+    #[allow(async_fn_in_trait)]
     async fn reply_ephemeral(&self, content: impl Into<String>) -> Result<(), Error>;
 }
 

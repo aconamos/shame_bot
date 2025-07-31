@@ -89,11 +89,11 @@ impl Kenneling {
         let Kenneling {
             guild_id,
             kennel_length,
-            kenneled_at,
+            kenneled_at: _kenneled_at,
             kenneler: kenneler_id,
             released_at,
             victim: victim_id,
-            id,
+            id: _id,
         } = self;
 
         let kenneler = http.get_member(*guild_id, *kenneler_id).await?;
@@ -181,11 +181,11 @@ impl Kenneling {
         let Kenneling {
             guild_id,
             kennel_length,
-            kenneled_at,
+            kenneled_at: _kenneled_at,
             kenneler: kenneler_id,
             released_at,
             victim: victim_id,
-            id,
+            id: _id,
         } = self;
 
         let server: Server = sqlx::query_as!(

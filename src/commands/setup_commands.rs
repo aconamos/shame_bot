@@ -1,6 +1,6 @@
 //! Contains commands for configuring the bot's usage in a given server.
 
-use ::serenity::all::{ChannelId, CreateCommand, Permissions, RoleId};
+use ::serenity::all::{ChannelId, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 use shame_bot::types::kenneling::*;
@@ -214,7 +214,7 @@ pub async fn set_announcement_message(
     if rows_affected == 0 {
         ctx.reply("Couldn't set announcement message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
-        ctx.reply(format!("Set announcement message to: {}", message))
+        ctx.reply(format!("Set announcement message to: {message}"))
             .await?;
     }
 
@@ -256,7 +256,7 @@ pub async fn set_kennel_message(
     if rows_affected == 0 {
         ctx.reply("Couldn't set kenneling message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
-        ctx.reply(format!("Set kenneling message to: {}", message))
+        ctx.reply(format!("Set kenneling message to: {message}"))
             .await?;
     }
 
@@ -299,7 +299,7 @@ pub async fn set_release_message(
     if rows_affected == 0 {
         ctx.reply("Couldn't set release message! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
-        ctx.reply(format!("Set release message to: {}", message))
+        ctx.reply(format!("Set release message to: {message}"))
             .await?;
     }
 
@@ -341,7 +341,7 @@ pub async fn set_kennel_channel(
     if rows_affected == 0 {
         ctx.reply("Couldn't set kennel channel! Make sure to set the kennel role using `/set_kennel_role` first!").await?;
     } else {
-        ctx.reply(format!("Set kennel channel to: {}", message))
+        ctx.reply(format!("Set kennel channel to: {message}"))
             .await?;
     }
 

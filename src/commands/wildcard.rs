@@ -1,14 +1,12 @@
 use std::time::Duration;
 
-use poise::{ApplicationContext, CreateReply, FrameworkContext};
-use serenity::all::{
-    ChannelId, EditMessage, FullEvent, Http, Interaction, Message, RoleId, User, UserId,
-};
+use poise::{ApplicationContext, FrameworkContext};
+use serenity::all::{FullEvent, Interaction, UserId};
 use serenity::client::Context as SerenityCtx;
 use shame_bot::{Context, types::*};
 
 use crate::set_activity;
-use crate::{Error, ShameBotData, get_formatted_message};
+use crate::{Error, ShameBotData};
 use shame_bot::util::stefan_traits::*;
 
 /// Kennels someone.
@@ -76,7 +74,7 @@ async fn kennel_user(
     tokio::time::sleep(dur_time).await;
 
     kenneling
-        .unapply_kennel(http, pool, true, (&reply_handle).as_ref(), Some(&ctx))
+        .unapply_kennel(http, pool, true, reply_handle.as_ref(), Some(&ctx))
         .await?;
 
     Ok(())

@@ -32,8 +32,8 @@ pub fn get_formatted_message(
     return_time: &str,
 ) -> String {
     message
-        .replace("$victim", format!("<@{}>", victim_id).as_str())
-        .replace("$kenneler", format!("<@{}>", author_id).as_str())
+        .replace("$victim", format!("<@{victim_id}>").as_str())
+        .replace("$kenneler", format!("<@{author_id}>").as_str())
         .replace("$time", time)
         .replace("$return", return_time)
 }
@@ -131,7 +131,7 @@ async fn main() {
                     let guild_id: GuildId = shame_bot::string_to_id(&row.guild_id)?;
 
                     ctx.http()
-                        .create_guild_commands(guild_id.into(), &vec![cmd])
+                        .create_guild_commands(guild_id, &vec![cmd])
                         .await?;
                 }
 
@@ -155,6 +155,7 @@ async fn main() {
     let thread_http = Arc::clone(&client.http);
 
     // TODO: Should this be moved to inside the ready callback?
+    #[allow(clippy::let_underscore_future)]
     let _ = tokio::spawn(async move {
         let http = thread_http.as_ref();
         let pool = thread_pool.as_ref();
