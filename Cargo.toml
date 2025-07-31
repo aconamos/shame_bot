@@ -11,6 +11,7 @@ doctest = false
 bench = false
 
 [dependencies]
+anyhow = "1.0.98"
 chrono = "0.4.41"
 dotenv = "0.15.0"
 humantime = "2.2.0"

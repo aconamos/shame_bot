@@ -1,12 +1,8 @@
-use serenity::all::UserId;
-
-use chrono::Utc;
-
 use chrono::DateTime;
-
-use std::time::Duration;
-
+use chrono::Utc;
 use serenity::all::GuildId;
+use serenity::all::UserId;
+use std::time::Duration;
 
 use crate::Context;
 use crate::Error;

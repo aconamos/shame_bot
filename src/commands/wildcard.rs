@@ -3,6 +3,7 @@ use std::time::Duration;
 use poise::{ApplicationContext, FrameworkContext};
 use serenity::all::{FullEvent, Interaction, UserId};
 use serenity::client::Context as SerenityCtx;
+use shame_bot::util::get_guild_id::GetGuildID;
 use shame_bot::{Context, types::*};
 
 use crate::set_activity;
@@ -18,7 +19,7 @@ async fn kennel_user(
 ) -> Result<(), Error> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
-    let guild_id = ctx.guild_id().expect("If this command gets called outside of a guild somehow, the world is on fire, and everyone explodes.");
+    let guild_id = ctx.require_guild().await?;
 
     let Ok(dur_time) = humantime::parse_duration(&time) else {
         return ctx
