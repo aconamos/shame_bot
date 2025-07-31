@@ -1,15 +1,15 @@
 use std::time::Duration;
 
 use serenity::all::{GuildId, Http, RoleId, UserId};
-use shame_bot::{Kenneling, string_to_id};
+use shame_bot::{string_to_id, types::*};
 use sqlx::{PgPool, postgres::types::PgInterval};
 
 pub async fn check(
     http: &Http,
     pool: &PgPool,
 ) -> Result<(), Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>> {
-    let active_kennelings: Vec<shame_bot::Kenneling> = sqlx::query_as!(
-        shame_bot::KennelingRow,
+    let active_kennelings: Vec<Kenneling> = sqlx::query_as!(
+        KennelingRow,
         r#"
         SELECT *
         FROM kennelings

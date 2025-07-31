@@ -5,8 +5,7 @@ use serenity::all::{
     ChannelId, EditMessage, FullEvent, Http, Interaction, Message, RoleId, User, UserId,
 };
 use serenity::client::Context as SerenityCtx;
-use shame_bot::{Context, string_to_id};
-use sqlx::postgres::types::PgInterval;
+use shame_bot::{Context, types::*};
 
 use crate::set_activity;
 use crate::{Error, ShameBotData, get_formatted_message};
@@ -33,7 +32,8 @@ async fn kennel_user(
         return ctx.reply_ephemeral("Over 1 second, please...").await;
     }
 
-    let Ok(data) = sqlx::query!(
+    let Ok(data) = sqlx::query_as!(
+        ServerRow,
         r#"
         SELECT * FROM servers
         WHERE
@@ -51,96 +51,33 @@ async fn kennel_user(
 
         return Ok(());
     };
+    let server: Server = data.try_into()?;
 
     let http = ctx.http();
-    let member = guild_id.member(http, user).await?;
-    let role_id: RoleId = string_to_id(&data.role_id)?;
-    let author_id = ctx.author().id;
-    let return_timestamp = chrono::Utc::now() + dur_time;
-    let announcement = get_formatted_message(
-        &data.announcement_message,
-        &user,
-        &ctx.author().id,
-        &time,
-        &return_timestamp.discord_relative_timestamp(),
-    );
-    let kennel_message = get_formatted_message(
-        &data.kennel_message,
-        &user,
-        &ctx.author().id,
-        &time,
-        &return_timestamp.discord_relative_timestamp(),
-    );
-    let pg_int = PgInterval::try_from(dur_time).expect("Some fuckwit put in a microsecond value?");
+    let now = chrono::Utc::now();
+    let return_timestamp = now + dur_time;
 
-    tracing::trace!(
-        "{} is kenneling user {} for {}...",
-        ctx.author().display_name(),
-        member.display_name(),
-        &time
-    );
+    let kenneling = Kenneling {
+        guild_id,
+        kennel_length: dur_time,
+        kenneled_at: now,
+        kenneler: ctx.author().id,
+        released_at: return_timestamp,
+        victim: user,
+        id: None,
+    };
 
-    member.add_role(http, &role_id).await?;
-
-    // Send the announcement message in the channel where kenneling was executed
-    let announcement_reply_handle = ctx.reply(&announcement).await?;
-
-    // Send the kenneling message in the dedicated kennel channel, if it exists
-    let mut kennel_reply_handle: Option<Message> = None;
-
-    if let Some(kennel_channel) = data.kennel_channel {
-        let kennel_channel: ChannelId =
-            string_to_id(&kennel_channel).expect("malformed data inserted");
-
-        if let Ok(channel) = http.get_channel(kennel_channel).await {
-            if channel.id() != ctx.channel_id() {
-                kennel_reply_handle = channel.id().say(http, &kennel_message).await.ok();
-            }
-        }
-    }
-
-    sqlx::query!(
-        r#"
-        INSERT INTO kennelings
-            (guild_id, victim, kenneler, kennel_length)
-        VALUES
-            ($1, $2, $3, $4)
-            ;
-        "#,
-        guild_id.get().to_string(),
-        user.get().to_string(),
-        author_id.get().to_string(),
-        pg_int,
-    )
-    .execute(pool)
-    .await?;
+    let reply_handle = kenneling.apply_kennel(http, &server, Some(&ctx)).await?;
+    let kenneling_row = KennelingRow::try_from(&kenneling)?;
+    kenneling_row.assume_current_and_insert(pool).await?;
 
     set_activity(ctx.serenity_context(), pool).await;
 
     tokio::time::sleep(dur_time).await;
 
-    tracing::trace!("User {} is being released...", member.display_name());
-
-    member.remove_role(http, &role_id).await?;
-
-    let release_message = get_formatted_message(
-        &data.release_message,
-        &user,
-        &author_id,
-        &time,
-        &return_timestamp.discord_relative_timestamp(),
-    );
-
-    // For now, both will be the same release message. Maybe this will be changed?
-    announcement_reply_handle
-        .edit(ctx, CreateReply::default().content(&release_message))
+    kenneling
+        .unapply_kennel(http, pool, true, (&reply_handle).as_ref(), Some(&ctx))
         .await?;
-
-    if let Some(mut kennel_msg) = kennel_reply_handle {
-        let _ = kennel_msg
-            .edit(ctx, EditMessage::default().content(release_message))
-            .await;
-    }
 
     Ok(())
 }
@@ -190,13 +127,4 @@ pub async fn wildcard_command_handler(
     }
 
     Ok(())
-}
-
-async fn send_kennel_message(
-    http: &Http,
-    author: &UserId,
-    victim: &UserId,
-    duration_message: &str,
-    return_time: &str,
-) {
 }

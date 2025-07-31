@@ -3,8 +3,7 @@
 use ::serenity::all::{ChannelId, CreateCommand, Permissions, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
-use shame_bot::Kenneling;
-use tracing::{debug, error, info, trace, warn};
+use shame_bot::types::kenneling::*;
 
 use crate::ShameBotData;
 
@@ -44,7 +43,7 @@ pub async fn set_kennel_role(
         let existing_role_id: RoleId = shame_bot::string_to_id(&res.role_id)?;
 
         let active_kennelings: Vec<Kenneling> = sqlx::query_as!(
-            shame_bot::KennelingRow,
+            KennelingRow,
             r#"
             SELECT *
             FROM kennelings
@@ -61,13 +60,13 @@ pub async fn set_kennel_role(
         .map(|kr| kr.try_into().expect("malformed data inserted"))
         .collect();
 
-        trace!(
+        tracing::trace!(
             "set_kennel_role called: Updating active kennelings for guild {}",
             guild.name
         );
 
         for kenneling in active_kennelings {
-            trace!("Updating kenneling: {kenneling:?}");
+            tracing::trace!("Updating kenneling: {kenneling:?}");
 
             let member = guild
                 .member(ctx.http(), kenneling.victim)
@@ -165,7 +164,7 @@ pub async fn set_kennel_command(
 
     let cmd = shame_bot::get_kennel_command_struct(&command);
 
-    debug!(
+    tracing::debug!(
         "{:?}",
         ctx.http().create_guild_commands(guild_id, &vec![cmd]).await
     );

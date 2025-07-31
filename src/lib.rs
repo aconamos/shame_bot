@@ -1,17 +1,24 @@
 use std::{num::ParseIntError, time::Duration};
 
-use chrono::{DateTime, Utc};
+use poise::{CreateReply, ReplyHandle};
 use serenity::all::{
-    ChannelId, CommandOptionType, CreateCommand, CreateCommandOption, GuildId, Permissions, RoleId,
-    UserId,
+    ChannelId, CommandOptionType, CreateCommand, CreateCommandOption, CreateMessage, EditMessage,
+    GuildId, Http, Permissions, RoleId, UserId,
 };
-use sqlx::{FromRow, Row, postgres::PgRow};
+use sqlx::{FromRow, PgPool, Row, postgres::PgRow};
 
-use crate::util::pgint_dur::PgIntervalToDuration as _;
+use crate::util::{pgint_dur::PgIntervalToDuration as _, stefan_traits::GetRelativeTimestamp};
 
 pub mod util {
     pub mod pgint_dur;
     pub mod stefan_traits;
+}
+pub mod types {
+    pub mod kenneling;
+    pub mod server;
+
+    pub use kenneling::*;
+    pub use server::*;
 }
 
 // User data, which is stored and accessible in all command invocations
@@ -21,86 +28,6 @@ pub struct ShameBotData {
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, ShameBotData, Error>;
-
-/// Represents the fields available from a query to the `kennelings` table.
-#[derive(Debug)]
-pub struct KennelingRow {
-    pub guild_id: String,
-    pub kennel_length: sqlx::postgres::types::PgInterval,
-    pub kenneled_at: sqlx::types::chrono::NaiveDateTime,
-    pub kenneler: String,
-    pub released_at: sqlx::types::chrono::NaiveDateTime,
-    pub victim: String,
-    pub id: i32,
-}
-
-/// Information about a given Kenneling from the database.
-#[derive(Debug)]
-pub struct Kenneling {
-    pub guild_id: GuildId,
-    pub kennel_length: Duration,
-    pub kenneled_at: DateTime<Utc>,
-    pub kenneler: UserId,
-    pub released_at: DateTime<Utc>,
-    pub victim: UserId,
-    pub id: i32,
-}
-
-impl TryFrom<&KennelingRow> for Kenneling {
-    type Error = Box<dyn std::error::Error>;
-
-    fn try_from(row: &KennelingRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            guild_id: string_to_id(&row.guild_id)?,
-            kennel_length: row.kennel_length.as_duration(),
-            kenneled_at: row.kenneled_at.and_utc(),
-            kenneler: string_to_id(&row.kenneler)?,
-            released_at: row.kenneled_at.and_utc(),
-            victim: string_to_id(&row.victim)?,
-            id: row.id,
-        })
-    }
-}
-
-/// Represents the fields available from a query to the `servers` table.
-#[derive(Debug)]
-pub struct ServerRow {
-    pub guild_id: String,
-    pub command_name: String,
-    pub announcement_message: String,
-    pub release_message: String,
-    pub role_id: String,
-    pub kennel_channel: String,
-    pub kennel_message: String,
-}
-
-/// Information about a given Server from the database.
-#[derive(Debug)]
-pub struct Server {
-    pub guild_id: GuildId,
-    pub command_name: String,
-    pub announcement_message: String,
-    pub release_message: String,
-    pub role_id: RoleId,
-    pub kennel_channel: ChannelId,
-    pub kennel_message: String,
-}
-
-impl TryFrom<ServerRow> for Server {
-    type Error = Box<dyn std::error::Error>;
-
-    fn try_from(row: ServerRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            guild_id: string_to_id(&row.guild_id)?,
-            role_id: string_to_id(&row.role_id)?,
-            kennel_channel: string_to_id(&row.kennel_channel)?,
-            command_name: row.command_name,
-            announcement_message: row.announcement_message,
-            release_message: row.release_message,
-            kennel_message: row.kennel_message,
-        })
-    }
-}
 
 /// Helper to parse a string into a u64 and then turn it into something.
 pub fn string_to_id<Id: From<u64>>(string: &str) -> Result<Id, ParseIntError> {
@@ -124,4 +51,18 @@ pub fn get_kennel_command_struct(command: &str) -> CreateCommand {
             .required(true),
         )
         .default_member_permissions(Permissions::MODERATE_MEMBERS)
+}
+
+pub fn get_formatted_message(
+    message: &str,
+    victim_id: &UserId,
+    author_id: &UserId,
+    time: &str,
+    return_time: &str,
+) -> String {
+    message
+        .replace("$victim", format!("<@{}>", victim_id).as_str())
+        .replace("$kenneler", format!("<@{}>", author_id).as_str())
+        .replace("$time", time)
+        .replace("$return", return_time)
 }
