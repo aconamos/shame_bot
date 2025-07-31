@@ -133,12 +133,16 @@ impl Kenneling {
                         &released_at.discord_relative_timestamp(),
                     );
 
-                    let _ = kennel_channel
+                    match kennel_channel
                         .send_message(
                             http,
                             serenity::all::CreateMessage::new().content(kennel_announcement_msg),
                         )
-                        .await;
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => tracing::error!("Couldn't send kennel message! {e:?}"),
+                    }
                 }
             }
         }

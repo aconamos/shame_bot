@@ -1,18 +1,17 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use ::serenity::all::{ActivityData, CacheHttp, GuildId, UserId};
 use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
-use shame_bot::{Error, ShameBotData};
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use serenity::all::{CacheHttp, GuildId};
+use shame_bot::{Error, ShameBotData, set_activity};
+use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::commands::utility::time_kenneled;
 use crate::commands::wildcard::wildcard_command_handler;
-use shame_bot::util::pgint_dur::PgIntervalToDuration;
 
 mod healthcheck;
 mod commands {
@@ -23,42 +22,6 @@ mod commands {
 
 /// The timeout between healthcehcks.
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(30);
-
-pub fn get_formatted_message(
-    message: &str,
-    victim_id: &UserId,
-    author_id: &UserId,
-    time: &str,
-    return_time: &str,
-) -> String {
-    message
-        .replace("$victim", format!("<@{victim_id}>").as_str())
-        .replace("$kenneler", format!("<@{author_id}>").as_str())
-        .replace("$time", time)
-        .replace("$return", return_time)
-}
-
-pub async fn set_activity(ctx: &serenity::prelude::Context, pool: &PgPool) {
-    if let Ok(res) = sqlx::query!(
-        r#"
-        SELECT SUM(kennel_length)
-        FROM kennelings
-        WHERE 
-            NOT guild_id = '849505364764524565'
-            ;
-        "#
-    )
-    .fetch_one(pool)
-    .await
-    {
-        if let Some(sum) = res.sum {
-            ctx.set_activity(Some(ActivityData::custom(format!(
-                "Kenneled users for {}",
-                humantime::format_duration(sum.as_duration())
-            ))));
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -155,8 +118,7 @@ async fn main() {
     let thread_http = Arc::clone(&client.http);
 
     // TODO: Should this be moved to inside the ready callback?
-    #[allow(clippy::let_underscore_future)]
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
         let http = thread_http.as_ref();
         let pool = thread_pool.as_ref();
 

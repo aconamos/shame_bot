@@ -92,6 +92,8 @@ async fn validate_kenneling(
             "Kenneling ended early. Time served: {}",
             humantime::format_duration(dur_served)
         );
+
+        // TODO: Should set_activity, but with what context?'
     }
 
     Ok(())

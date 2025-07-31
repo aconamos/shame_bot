@@ -1,11 +1,11 @@
 use std::num::ParseIntError;
 
-use serenity::all::{
-    CommandOptionType, CreateCommand, CreateCommandOption, Permissions, UserId,
-};
+use serenity::all::{CommandOptionType, CreateCommand, CreateCommandOption, Permissions, UserId};
 
+use crate::util::pgint_dur::PgIntervalToDuration as _;
 
 pub mod util {
+    pub mod get_guild_id;
     pub mod pgint_dur;
     pub mod stefan_traits;
 }
@@ -61,4 +61,26 @@ pub fn get_formatted_message(
         .replace("$kenneler", format!("<@{author_id}>").as_str())
         .replace("$time", time)
         .replace("$return", return_time)
+}
+
+pub async fn set_activity(ctx: &serenity::prelude::Context, pool: &sqlx::PgPool) {
+    if let Ok(res) = sqlx::query!(
+        r#"
+        SELECT SUM(kennel_length)
+        FROM kennelings
+        WHERE 
+            NOT guild_id = '849505364764524565'
+            ;
+        "#
+    )
+    .fetch_one(pool)
+    .await
+    {
+        if let Some(sum) = res.sum {
+            ctx.set_activity(Some(serenity::all::ActivityData::custom(format!(
+                "Kenneled users for {}",
+                humantime::format_duration(sum.as_duration())
+            ))));
+        }
+    }
 }

@@ -3,7 +3,7 @@
 use ::serenity::all::{ChannelId, RoleId};
 use poise::serenity_prelude as serenity;
 use regex::Regex;
-use shame_bot::types::kenneling::*;
+use shame_bot::{types::kenneling::*, util::get_guild_id::GetGuildID};
 
 use crate::ShameBotData;
 
@@ -119,13 +119,7 @@ pub async fn set_kennel_command(
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let command = command.unwrap_or_else(|| "kennel".to_string());
-
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("This command can only be used in a server!")
-            .await?;
-
-        return Ok(());
-    };
+    let guild_id = ctx.require_guild().await?;
 
     // TODO: Figure out Discord's actual regex. It's on the docs... somewhere
     let re = Regex::new(r"^[a-zA-Z][a-zA-Z_]+$").expect("Idiot coder coded bad code!");
@@ -187,13 +181,7 @@ pub async fn set_announcement_message(
 ) -> Result<(), Error> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
-
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("This command can only be used in a server!")
-            .await?;
-
-        return Ok(());
-    };
+    let guild_id = ctx.require_guild().await?;
 
     let rows_affected = sqlx::query!(
         r#"
@@ -229,13 +217,7 @@ pub async fn set_kennel_message(
 ) -> Result<(), Error> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
-
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("This command can only be used in a server!")
-            .await?;
-
-        return Ok(());
-    };
+    let guild_id = ctx.require_guild().await?;
 
     let rows_affected = sqlx::query!(
         r#"
@@ -272,13 +254,7 @@ pub async fn set_release_message(
 ) -> Result<(), Error> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
-
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("This command can only be used in a server!")
-            .await?;
-
-        return Ok(());
-    };
+    let guild_id = ctx.require_guild().await?;
 
     let rows_affected = sqlx::query!(
         r#"
@@ -314,13 +290,7 @@ pub async fn set_kennel_channel(
 ) -> Result<(), Error> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
-
-    let Some(guild_id) = ctx.guild_id() else {
-        ctx.reply("This command can only be used in a server!")
-            .await?;
-
-        return Ok(());
-    };
+    let guild_id = ctx.require_guild().await?;
 
     let rows_affected = sqlx::query!(
         r#"
