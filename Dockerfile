@@ -1,4 +1,4 @@
-FROM rust:1.87 AS builder
+FROM rust:latest AS builder
 WORKDIR /usr/src/shame_bot
 COPY . .
 RUN cargo install --path .
