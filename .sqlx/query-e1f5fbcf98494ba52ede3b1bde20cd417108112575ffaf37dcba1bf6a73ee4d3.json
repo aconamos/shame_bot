@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "victim",
+        "name": "victim_id",
         "type_info": "Varchar"
       },
       {
@@ -25,7 +25,7 @@
       },
       {
         "ordinal": 4,
-        "name": "kenneler",
+        "name": "author_id",
         "type_info": "Varchar"
       },
       {

@@ -23,9 +23,9 @@ pub struct KennelingRow {
     pub guild_id: String,
     pub kennel_length: sqlx::postgres::types::PgInterval,
     pub kenneled_at: sqlx::types::chrono::NaiveDateTime,
-    pub kenneler: String,
+    pub author_id: String,
     pub released_at: sqlx::types::chrono::NaiveDateTime,
-    pub victim: String,
+    pub victim_id: String,
     pub id: Option<i32>,
 }
 
@@ -35,9 +35,9 @@ pub struct Kenneling {
     pub guild_id: GuildId,
     pub kennel_length: Duration,
     pub kenneled_at: DateTime<Utc>,
-    pub kenneler: UserId,
+    pub author_id: UserId,
     pub released_at: DateTime<Utc>,
-    pub victim: UserId,
+    pub victim_id: UserId,
     pub id: Option<i32>,
 }
 
@@ -49,9 +49,9 @@ impl TryFrom<&KennelingRow> for Kenneling {
             guild_id: string_to_id(&row.guild_id)?,
             kennel_length: row.kennel_length.as_duration(),
             kenneled_at: row.kenneled_at.and_utc(),
-            kenneler: string_to_id(&row.kenneler)?,
+            author_id: string_to_id(&row.author_id)?,
             released_at: row.kenneled_at.and_utc(),
-            victim: string_to_id(&row.victim)?,
+            victim_id: string_to_id(&row.victim_id)?,
             id: row.id,
         })
     }
@@ -65,9 +65,9 @@ impl TryFrom<&Kenneling> for KennelingRow {
             guild_id: row.guild_id.to_string(),
             kennel_length: row.kennel_length.try_into()?,
             kenneled_at: row.kenneled_at.naive_utc(),
-            kenneler: row.kenneler.to_string(),
+            author_id: row.author_id.to_string(),
             released_at: row.released_at.naive_utc(),
-            victim: row.victim.to_string(),
+            victim_id: row.victim_id.to_string(),
             id: None,
         })
     }
@@ -90,9 +90,9 @@ impl Kenneling {
             guild_id,
             kennel_length,
             kenneled_at: _kenneled_at,
-            kenneler: kenneler_id,
+            author_id: kenneler_id,
             released_at,
-            victim: victim_id,
+            victim_id,
             id: _id,
         } = self;
 
@@ -182,9 +182,9 @@ impl Kenneling {
             guild_id,
             kennel_length,
             kenneled_at: _kenneled_at,
-            kenneler: kenneler_id,
+            author_id: kenneler_id,
             released_at,
-            victim: victim_id,
+            victim_id,
             id: _id,
         } = self;
 
@@ -260,7 +260,7 @@ impl KennelingRow {
         let id = sqlx::query!(
             r#"
             INSERT INTO kennelings
-                (guild_id, victim, kenneler, kennel_length)
+                (guild_id, victim_id, author_id, kennel_length)
             VALUES
                 ($1, $2, $3, $4)
             RETURNING
@@ -268,8 +268,8 @@ impl KennelingRow {
                 ;
             "#,
             self.guild_id,
-            self.victim,
-            self.kenneler,
+            self.victim_id,
+            self.author_id,
             self.kennel_length,
         )
         .fetch_one(pool)

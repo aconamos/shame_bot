@@ -59,9 +59,9 @@ async fn kennel_user(
         guild_id,
         kennel_length: dur_time,
         kenneled_at: now,
-        kenneler: ctx.author().id,
+        author_id: ctx.author().id,
         released_at: return_timestamp,
-        victim: user,
+        victim_id: user,
         id: None,
     };
 

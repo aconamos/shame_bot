@@ -53,7 +53,9 @@ async fn validate_kenneling(
     kennel_role: RoleId,
 ) -> Result<(), Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>> {
     let Kenneling {
-        victim, guild_id, ..
+        victim_id: victim,
+        guild_id,
+        ..
     } = kenneling;
 
     let guild = http.get_guild(guild_id).await?;

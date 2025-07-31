@@ -69,7 +69,7 @@ pub async fn set_kennel_role(
             tracing::trace!("Updating kenneling: {kenneling:?}");
 
             let member = guild
-                .member(ctx.http(), kenneling.victim)
+                .member(ctx.http(), kenneling.victim_id)
                 .await
                 .expect("Member must have left!");
 

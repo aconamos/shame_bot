@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO kennelings\n                (guild_id, victim, kenneler, kennel_length)\n            VALUES\n                ($1, $2, $3, $4)\n            RETURNING\n                id\n                ;\n            ",
+  "query": "\n            INSERT INTO kennelings\n                (guild_id, victim_id, author_id, kennel_length)\n            VALUES\n                ($1, $2, $3, $4)\n            RETURNING\n                id\n                ;\n            ",
   "describe": {
     "columns": [
       {
@@ -21,5 +21,5 @@
       false
     ]
   },
-  "hash": "620ae6a3c5f4baa48d1d3632e836046d75553232d71b0dc3b698cc010cfad961"
+  "hash": "9c5c8a99a5b5d617c7130bd60fb65a2d74a7eb1cbd0a83d0fa5305a9bc862358"
 }
