@@ -1,21 +1,19 @@
 //! Contains commands for configuring the bot's usage in a given server.
 
 use ::serenity::all::{ChannelId, RoleId};
+use anyhow::Result;
 use poise::serenity_prelude as serenity;
 use regex::Regex;
 use shame_bot::{types::kenneling::*, util::get_guild_id::GetGuildID};
 
-use crate::ShameBotData;
-
-type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, ShameBotData, Error>;
+use crate::{Context, ShameBotData};
 
 /// Sets the kennel role.
 #[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
 pub async fn set_kennel_role(
     ctx: Context<'_>,
     #[description = "The kenneling role. Must be set for the command to work"] role: serenity::Role,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let role_id = role.id.get();
@@ -115,7 +113,7 @@ pub async fn set_kennel_role(
 pub async fn set_kennel_command(
     ctx: Context<'_>,
     #[description = "The command to kennel someone. Defaults to 'kennel'"] command: Option<String>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let command = command.unwrap_or_else(|| "kennel".to_string());
@@ -178,7 +176,7 @@ pub async fn set_announcement_message(
     ctx: Context<'_>,
     #[description = "The message to send when kenneling someone. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;
@@ -214,7 +212,7 @@ pub async fn set_announcement_message(
 pub async fn set_kennel_message(
     ctx: Context<'_>,
     #[description = "The message to send in the kennel when kenneling someone."] message: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;
@@ -251,7 +249,7 @@ pub async fn set_release_message(
     ctx: Context<'_>,
     #[description = "The released from kennel message. Use $victim, $kenneler, $time, and $return to format."]
     message: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;
@@ -287,7 +285,7 @@ pub async fn set_release_message(
 pub async fn set_kennel_channel(
     ctx: Context<'_>,
     #[description = "The kennel channel to announce in"] message: ChannelId,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;

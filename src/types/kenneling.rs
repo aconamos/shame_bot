@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 use chrono::DateTime;
 use chrono::Utc;
 use serenity::all::GuildId;
@@ -5,7 +6,6 @@ use serenity::all::UserId;
 use std::time::Duration;
 
 use crate::Context;
-use crate::Error;
 use crate::get_formatted_message;
 use crate::string_to_id;
 use crate::types::server::Server;
@@ -54,12 +54,15 @@ impl TryFrom<&KennelingRow> for Kenneling {
 }
 
 impl TryFrom<&Kenneling> for KennelingRow {
-    type Error = Box<dyn std::error::Error + std::marker::Send + std::marker::Sync>;
+    type Error = anyhow::Error;
 
     fn try_from(row: &Kenneling) -> Result<Self, Self::Error> {
         Ok(KennelingRow {
             guild_id: row.guild_id.to_string(),
-            kennel_length: row.kennel_length.try_into()?,
+            kennel_length: row
+                .kennel_length
+                .try_into()
+                .map_err(|_| anyhow!("Couldn't convert length into PgInterval"))?,
             kenneled_at: row.kenneled_at.naive_utc(),
             author_id: row.author_id.to_string(),
             released_at: row.released_at.naive_utc(),
@@ -81,7 +84,7 @@ impl Kenneling {
         http: &serenity::all::Http,
         server: &Server,
         ctx: Option<&Context<'a>>,
-    ) -> Result<Option<poise::ReplyHandle<'a>>, Error> {
+    ) -> Result<Option<poise::ReplyHandle<'a>>> {
         let Kenneling {
             guild_id,
             kennel_length,
@@ -151,7 +154,7 @@ impl Kenneling {
         &self,
         http: &serenity::all::Http,
         pool: &sqlx::PgPool,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let server: Server = sqlx::query_as!(
             ServerRow,
             r#"
@@ -177,7 +180,7 @@ impl Kenneling {
         send_in_channel: bool,
         reply_handle: Option<&poise::ReplyHandle<'a>>,
         ctx: Option<&Context<'a>>,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let Kenneling {
             guild_id,
             kennel_length,
@@ -254,7 +257,7 @@ impl KennelingRow {
     /// Inserts this Row into the database, assuming that it is current (ignores the timestamp value of the Row).
     ///
     /// Returns the ID of the inserted kenneling.
-    pub async fn assume_current_and_insert(&self, pool: &sqlx::PgPool) -> Result<i32, Error> {
+    pub async fn assume_current_and_insert(&self, pool: &sqlx::PgPool) -> Result<i32> {
         tracing::trace!("Inserting a new Kenneling...");
 
         let id = sqlx::query!(

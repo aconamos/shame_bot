@@ -1,6 +1,6 @@
-use std::num::ParseIntError;
-
+use anyhow::Result;
 use serenity::all::{CommandOptionType, CreateCommand, CreateCommandOption, Permissions, UserId};
+use std::num::ParseIntError;
 
 use crate::util::pgint_dur::PgIntervalToDuration as _;
 
@@ -22,8 +22,7 @@ pub struct ShameBotData {
     pub pool: std::sync::Arc<sqlx::PgPool>,
 }
 
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-pub type Context<'a> = poise::Context<'a, ShameBotData, Error>;
+pub type Context<'a> = poise::Context<'a, ShameBotData, anyhow::Error>;
 
 /// Helper to parse a string into a u64 and then turn it into something.
 pub fn string_to_id<Id: From<u64>>(string: &str) -> Result<Id, ParseIntError> {

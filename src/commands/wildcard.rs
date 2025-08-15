@@ -1,13 +1,13 @@
-use std::time::Duration;
-
+use anyhow::{Context as _, Result};
 use poise::{ApplicationContext, FrameworkContext};
 use serenity::all::{FullEvent, Interaction, UserId};
 use serenity::client::Context as SerenityCtx;
 use shame_bot::util::get_guild_id::GetGuildID;
 use shame_bot::{Context, types::*};
+use std::time::Duration;
 
+use crate::ShameBotData;
 use crate::set_activity;
-use crate::{Error, ShameBotData};
 use shame_bot::util::stefan_traits::*;
 
 /// Kennels someone.
@@ -16,7 +16,7 @@ async fn kennel_user(
     ctx: Context<'_>,
     #[description = "User to kennel"] user: UserId,
     #[description = "Time to kennel"] time: String,
-) -> Result<(), Error> {
+) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;
@@ -24,7 +24,8 @@ async fn kennel_user(
     let Ok(dur_time) = humantime::parse_duration(&time) else {
         return ctx
             .reply_ephemeral("Invalid time format! Say something like '3m' or '1h'")
-            .await;
+            .await
+            .context("Couldn't send reply!");
     };
 
     if dur_time < Duration::from_secs(1) {
@@ -86,9 +87,9 @@ async fn kennel_user(
 pub async fn wildcard_command_handler(
     ctx: &SerenityCtx,
     event: &FullEvent,
-    framework_ctx: FrameworkContext<'_, ShameBotData, Error>,
+    framework_ctx: FrameworkContext<'_, ShameBotData, anyhow::Error>,
     data: &ShameBotData,
-) -> Result<(), Error> {
+) -> Result<()> {
     if let FullEvent::InteractionCreate {
         interaction: Interaction::Command(command_interaction),
     } = event
@@ -120,7 +121,7 @@ pub async fn wildcard_command_handler(
         let action = app_ctx
             .command
             .slash_action
-            .ok_or("command structure mismatch")?;
+            .with_context(|| "Command structure mismatch")?;
 
         let _ = action(app_ctx).await;
     }

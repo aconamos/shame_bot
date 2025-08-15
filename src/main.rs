@@ -5,7 +5,7 @@ use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use serenity::all::{CacheHttp, GuildId};
-use shame_bot::{Error, ShameBotData, set_activity};
+use shame_bot::{Context, ShameBotData, set_activity};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -41,7 +41,7 @@ async fn main() {
             .max_connections(5)
             .connect(&postgres_url)
             .await
-            .expect("Couldn't connect to database! Aborting..."),
+            .expect("Couldn't connect to data   base! Aborting..."),
     );
     // Pool reference for the healthcheck thread
     let thread_pool = Arc::clone(&pool);
@@ -59,7 +59,7 @@ async fn main() {
             ],
             event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             on_error: |error| {
-                async fn error_cb(error: poise::FrameworkError<'_, ShameBotData, Error>) {
+                async fn error_cb(error: poise::FrameworkError<'_, ShameBotData, anyhow::Error>) {
                     // Get rid of the unknown interaction errors because the kennel command triggers this.
                     if let poise::FrameworkError::UnknownInteraction { .. } = error {
                         return;
