@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT *\n        FROM kennels\n        WHERE\n            name = $1\n            ;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "role_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "msg_announce",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "msg_announce_edit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "msg_release",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "kennel_channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "kennel_msg",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "kennel_msg_edit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "kennel_release_msg",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "2bc689dea2cea3048711f5032e486d65d04ad3c46257e2699c0074454b5c1598"
+}

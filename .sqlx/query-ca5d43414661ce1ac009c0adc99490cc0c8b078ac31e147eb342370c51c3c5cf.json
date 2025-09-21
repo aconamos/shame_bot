@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM kennelings\n        WHERE\n            released_at > CURRENT_TIMESTAMP\n            ;\n        ",
+  "query": "\n            INSERT INTO kennelings\n                (\n                    kennel_id,\n                    guild_id,\n                    author_id,\n                    victim_id,\n                    kennel_length,\n                    msg_announce_id,\n                    kennel_msg_id\n                )\n            VALUES\n                (\n                    $1,\n                    $2,\n                    $3,\n                    $4,\n                    $5,\n                    $6,\n                    $7\n                )\n            RETURNING *\n                ;\n            ",
   "describe": {
     "columns": [
       {
@@ -55,7 +55,15 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Interval",
+        "Int8",
+        "Int8"
+      ]
     },
     "nullable": [
       false,
@@ -70,5 +78,5 @@
       true
     ]
   },
-  "hash": "e1f5fbcf98494ba52ede3b1bde20cd417108112575ffaf37dcba1bf6a73ee4d3"
+  "hash": "ca5d43414661ce1ac009c0adc99490cc0c8b078ac31e147eb342370c51c3c5cf"
 }

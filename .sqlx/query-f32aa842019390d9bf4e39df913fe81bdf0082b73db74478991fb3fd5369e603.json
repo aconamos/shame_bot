@@ -5,43 +5,58 @@
     "columns": [
       {
         "ordinal": 0,
-        "name": "guild_id",
-        "type_info": "Varchar"
+        "name": "id",
+        "type_info": "Int4"
       },
       {
         "ordinal": 1,
-        "name": "victim_id",
-        "type_info": "Varchar"
+        "name": "kennel_id",
+        "type_info": "Int4"
       },
       {
         "ordinal": 2,
+        "name": "guild_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "victim_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "kenneled_at",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 6,
         "name": "kennel_length",
         "type_info": "Interval"
       },
       {
-        "ordinal": 3,
-        "name": "kenneled_at",
-        "type_info": "Timestamp"
-      },
-      {
-        "ordinal": 4,
-        "name": "author_id",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "released_at",
         "type_info": "Timestamp"
       },
       {
-        "ordinal": 6,
-        "name": "id",
-        "type_info": "Int4"
+        "ordinal": 8,
+        "name": "msg_announce_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "kennel_msg_id",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
@@ -51,7 +66,10 @@
       false,
       false,
       false,
-      false
+      false,
+      false,
+      true,
+      true
     ]
   },
   "hash": "f32aa842019390d9bf4e39df913fe81bdf0082b73db74478991fb3fd5369e603"

@@ -5,6 +5,7 @@ use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use serenity::all::{CacheHttp, GuildId};
+use shame_bot::types::{Kennel, KennelRow};
 use shame_bot::{Context, ShameBotData, set_activity};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::layer::SubscriberExt;
@@ -15,6 +16,7 @@ use crate::commands::wildcard::wildcard_command_handler;
 
 mod healthcheck;
 mod commands {
+    pub mod config;
     pub mod setup_commands;
     pub mod utility;
     pub mod wildcard;
@@ -41,7 +43,7 @@ async fn main() {
             .max_connections(5)
             .connect(&postgres_url)
             .await
-            .expect("Couldn't connect to data   base! Aborting..."),
+            .expect("Couldn't connect to database! Aborting..."),
     );
     // Pool reference for the healthcheck thread
     let thread_pool = Arc::clone(&pool);
@@ -74,27 +76,36 @@ async fn main() {
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                let data = sqlx::query!(
+                let kennels = sqlx::query_as!(
+                    KennelRow,
                     r#"
-                    SELECT * FROM servers
-                    ;
+                    SELECT * 
+                    FROM kennels
+                    ORDER BY kennels.guild_id
+                        ;
                     "#
                 )
                 .fetch_all(pool.as_ref())
-                .await?;
-                tracing::info!("Setting up guild commands...");
-                for row in data {
-                    let cmd = shame_bot::get_kennel_command_struct(&row.command_name);
-                    tracing::debug!(
-                        "Initializing kennel command \"{}\" for guild {}",
-                        &row.command_name,
-                        &row.guild_id
-                    );
+                .await?
+                .into_iter()
+                .map(|row| Kennel::from(row))
+                .collect::<Vec<_>>();
 
-                    let guild_id: GuildId = shame_bot::string_to_id(&row.guild_id)?;
+                let kennels_chunked = kennels.chunk_by(|a, b| a.guild_id == b.guild_id);
+
+                tracing::info!("Setting up guild commands...");
+
+                for server_kennels in kennels_chunked {
+                    tracing::debug!("Initializing server {}", server_kennels[0].guild_id);
+
+                    let commands: Vec<_> = server_kennels
+                        .iter()
+                        .inspect(|cmd| tracing::debug!("kennel {}", &cmd.name))
+                        .map(|cmd| shame_bot::get_kennel_command_struct(&cmd.name))
+                        .collect();
 
                     ctx.http()
-                        .create_guild_commands(guild_id, &vec![cmd])
+                        .create_guild_commands(server_kennels[0].guild_id, &commands)
                         .await?;
                 }
 

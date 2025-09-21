@@ -10,11 +10,11 @@ pub mod util {
     pub mod stefan_traits;
 }
 pub mod types {
+    pub mod kennel;
     pub mod kenneling;
-    pub mod server;
 
+    pub use kennel::*;
     pub use kenneling::*;
-    pub use server::*;
 }
 
 // User data, which is stored and accessible in all command invocations

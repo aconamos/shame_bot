@@ -36,3 +36,32 @@ CREATE INDEX servers_guild_id_command_name ON public.servers USING btree (guild_
 
 
 -- 2025-07-31 00:38:25 UTC
+
+DROP TABLE IF EXISTS "kennels" CASCADE;
+CREATE TABLE "public"."kennels" (
+    "id" serial PRIMARY KEY,
+    "name" text UNIQUE NOT NULL,
+    "guild_id" bigint NOT NULL,
+    "role_id" bigint UNIQUE NOT NULL,
+    "msg_announce" text,
+    "msg_announce_edit" text,
+    "msg_release" text,
+    "kennel_channel_id" bigint,
+    "kennel_msg" text,
+    "kennel_msg_edit" text,
+    "kennel_release_msg" text
+);
+
+DROP TABLE IF EXISTS "kennelings" CASCADE;
+CREATE TABLE "public"."kennelings" (
+    "id" serial PRIMARY KEY,
+    "kennel_id" integer REFERENCES kennels(id) NOT NULL,
+    "guild_id" bigint NOT NULL,
+    "author_id" bigint NOT NULL,
+    "victim_id" bigint NOT NULL,
+    "kenneled_at" date DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "kennel_length" interval NOT NULL,
+    "released_at" timestamp GENERATED ALWAYS AS ((kenneled_at + kennel_length)) STORED NOT NULL,
+    "msg_announce_id" bigint,
+    "kennel_msg_id" bigint
+);

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO kennels\n            (name, guild_id, role_id)\n        VALUES\n            ($1, $2, $3)\n            ;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0111f52326b20efab182a132a946b52a7c91043deb0e1f439f50306e0f2a3c72"
+}
