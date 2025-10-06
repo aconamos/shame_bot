@@ -40,7 +40,7 @@ CREATE INDEX servers_guild_id_command_name ON public.servers USING btree (guild_
 DROP TABLE IF EXISTS "kennels" CASCADE;
 CREATE TABLE "public"."kennels" (
     "id" serial PRIMARY KEY,
-    "name" text UNIQUE NOT NULL,
+    "command" text UNIQUE NOT NULL,
     "guild_id" bigint NOT NULL,
     "role_id" bigint UNIQUE NOT NULL,
     "msg_announce" text,
@@ -49,7 +49,8 @@ CREATE TABLE "public"."kennels" (
     "kennel_channel_id" bigint,
     "kennel_msg" text,
     "kennel_msg_edit" text,
-    "kennel_release_msg" text
+    "kennel_release_msg" text,
+    "opt_in_to_metrics" boolean DEFAULT false NOT NULL
 );
 
 DROP TABLE IF EXISTS "kennelings" CASCADE;

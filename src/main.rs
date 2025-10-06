@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use commands::setup_commands::*;
+// use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
 use serenity::all::{CacheHttp, GuildId};
@@ -11,15 +11,16 @@ use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+use crate::commands::config;
 use crate::commands::utility::time_kenneled;
-use crate::commands::wildcard::wildcard_command_handler;
+// use crate::commands::wildcard::wildcard_command_handler;
 
-mod healthcheck;
+// mod healthcheck;
 mod commands {
     pub mod config;
-    pub mod setup_commands;
+    // pub mod setup_commands;
     pub mod utility;
-    pub mod wildcard;
+    // pub mod wildcard;
 }
 
 /// The timeout between healthcehcks.
@@ -51,15 +52,13 @@ async fn main() {
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![
-                set_kennel_role(),
-                set_kennel_command(),
-                set_announcement_message(),
-                set_kennel_message(),
-                set_release_message(),
-                set_kennel_channel(),
+                config::kennels(),
+                config::create(),
+                config::set_message(),
                 time_kenneled(),
             ],
-            event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
+            // TODO: event_handler here
+            // event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             on_error: |error| {
                 async fn error_cb(error: poise::FrameworkError<'_, ShameBotData, anyhow::Error>) {
                     // Get rid of the unknown interaction errors because the kennel command triggers this.
@@ -100,8 +99,8 @@ async fn main() {
 
                     let commands: Vec<_> = server_kennels
                         .iter()
-                        .inspect(|cmd| tracing::debug!("kennel {}", &cmd.name))
-                        .map(|cmd| shame_bot::get_kennel_command_struct(&cmd.name))
+                        .inspect(|cmd| tracing::debug!("kennel {}", &cmd.command))
+                        .map(|cmd| shame_bot::get_kennel_command_struct(&cmd.command))
                         .collect();
 
                     ctx.http()
@@ -129,17 +128,17 @@ async fn main() {
     let thread_http = Arc::clone(&client.http);
 
     // TODO: Should this be moved to inside the ready callback?
-    tokio::spawn(async move {
-        let http = thread_http.as_ref();
-        let pool = thread_pool.as_ref();
+    // tokio::spawn(async move {
+    //     let http = thread_http.as_ref();
+    //     let pool = thread_pool.as_ref();
 
-        loop {
-            if let Err(e) = healthcheck::check(http, pool).await {
-                tracing::error!("Healthcheck failed!: {}", (*e).to_string());
-            }
-            tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
-        }
-    });
+    //     loop {
+    //         if let Err(e) = healthcheck::check(http, pool).await {
+    //             tracing::error!("Healthcheck failed!: {}", (*e).to_string());
+    //         }
+    //         tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
+    //     }
+    // });
 
     tracing::info!("Bot starting...");
     client.start().await.unwrap();

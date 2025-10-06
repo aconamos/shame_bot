@@ -6,7 +6,11 @@ use shame_bot::{
     util::{get_guild_id::GetGuildID, stefan_traits::SendReplyEphemeral},
 };
 
-/// Useless stub for command grouping.
+static COMMAND_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"^[-_'\p{L}\p{N}\p{sc=Deva}\p{sc=Thai}]{1,32}$").unwrap()
+});
+
+/// Useless stub for command groupingf .
 #[poise::command(slash_command, subcommands("create", "set_message"))]
 pub async fn kennels(_ctx: Context<'_>) -> Result<()> {
     Ok(())
@@ -16,13 +20,20 @@ pub async fn kennels(_ctx: Context<'_>) -> Result<()> {
 #[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
 pub async fn create(
     ctx: Context<'_>,
-    #[description = "The name of this kennel. Must be unique."] kennel_name: String,
+    #[description = "The name of this kennel. Must be unique. This will be the command as well."]
+    command: String,
     #[description = "The role of this kennel. Can't be shared with other kennels."]
     role: serenity::Role,
 ) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
     let guild_id = ctx.require_guild().await?;
+
+    if !COMMAND_REGEX.is_match(&command) {
+        return ctx
+            .reply_ephemeral("Command name must consist of up to 32 characters which are _, -, ', letters, and numbers only!")
+            .await;
+    };
 
     // validate uniqueness of kennel name and role id
     let Err(_) = sqlx::query!(
@@ -33,9 +44,9 @@ pub async fn create(
             role_id = $1
             ;
         "#,
-        role.guild_id.get() as i64
+        role.id.get() as i64
     )
-    .fetch_all(pool)
+    .fetch_one(pool)
     .await
     else {
         return ctx
@@ -48,12 +59,12 @@ pub async fn create(
         SELECT *
         FROM kennels
         WHERE
-            name = $1
+            command = $1
             ;
         "#,
-        &kennel_name
+        &command
     )
-    .fetch_all(pool)
+    .fetch_one(pool)
     .await
     else {
         return ctx
@@ -65,12 +76,12 @@ pub async fn create(
     let res = sqlx::query!(
         r#"
         INSERT INTO kennels
-            (name, guild_id, role_id)
+            (command, guild_id, role_id)
         VALUES
             ($1, $2, $3)
             ;
         "#,
-        &kennel_name,
+        &command,
         guild_id.get() as i64,
         role.id.get() as i64
     )
@@ -80,7 +91,7 @@ pub async fn create(
     // hacky error handling for reply
     match res {
         Ok(_) => {
-            ctx.reply_ephemeral(format!("New kennel {} was created!\nIt's recommended to set the announcement messages now and the kennel channel, if applicable.", &kennel_name))
+            ctx.reply_ephemeral(format!("New kennel `{}` was created!\nIt's recommended to set the announcement messages now and the kennel channel, if applicable.", &command))
                 .await?;
         }
         Err(e) => {
@@ -126,11 +137,13 @@ impl ToString for MessageType {
 /// A row from the autocomplete query, so that defined types can be used instead of the anonymous
 /// record thingies.
 struct AutocompleteRow {
-    name: String,
+    command: String,
 }
 
 async fn autocomplete_kennel(ctx: Context<'_>, partial: &str) -> impl Iterator<Item = String> {
     let ShameBotData { pool } = ctx.data();
+    // I seriously doubt that it is possible for this code path to even execute.
+    // I'm 99% sure. I'm not doing an unreachable!() though.
     let Ok(guild_id) = ctx.require_guild().await else {
         return vec!["This comand should only be used inside of a guild!".into()].into_iter();
     };
@@ -139,11 +152,11 @@ async fn autocomplete_kennel(ctx: Context<'_>, partial: &str) -> impl Iterator<I
     let potential_kennels = sqlx::query_as!(
         AutocompleteRow,
         r#"
-        SELECT name
+        SELECT command
         FROM kennels
         WHERE
             guild_id = $1
-            AND name ~ $2
+            AND command ~ $2
             ;
         "#,
         guild_id.get() as i64,
@@ -155,7 +168,7 @@ async fn autocomplete_kennel(ctx: Context<'_>, partial: &str) -> impl Iterator<I
     let kennel_names: Vec<String> = potential_kennels
         .unwrap_or(vec![])
         .into_iter()
-        .map(|row| row.name)
+        .map(|row| row.command)
         .collect();
 
     kennel_names.into_iter()
@@ -179,7 +192,7 @@ pub async fn set_message(
         SET
             $1 = $2
         WHERE
-            name = $3
+            command = $3
             ;
         "#,
     )
@@ -188,6 +201,17 @@ pub async fn set_message(
     .bind(&kennel)
     .execute(pool)
     .await;
+
+    match res {
+        Ok(x) => {
+            let _ = ctx.reply("success").await;
+        }
+        Err(x) => {
+            let _ = ctx.reply("err").await;
+            tracing::error!("error: {x:?}");
+            return Err(x.into());
+        }
+    }
 
     Ok(())
 }

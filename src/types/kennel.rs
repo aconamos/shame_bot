@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use serenity::all::{ChannelId, CreateMessage, GuildId, Http, MessageId, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval};
 
@@ -12,7 +12,7 @@ use crate::{
 #[derive(Debug)]
 pub struct KennelRow {
     pub id: i32,
-    pub name: String,
+    pub command: String,
     pub guild_id: i64,
     pub role_id: i64,
     pub msg_announce: Option<String>,
@@ -22,13 +22,14 @@ pub struct KennelRow {
     pub kennel_msg: Option<String>,
     pub kennel_msg_edit: Option<String>,
     pub kennel_release_msg: Option<String>,
+    pub opt_in_to_metrics: bool,
 }
 
 /// A Kennel
 #[derive(Debug)]
 pub struct Kennel {
     pub id: i32,
-    pub name: String,
+    pub command: String,
     pub guild_id: GuildId,
     pub role_id: RoleId,
     pub msg_announce: Option<String>,
@@ -38,24 +39,26 @@ pub struct Kennel {
     pub kennel_msg: Option<String>,
     pub kennel_msg_edit: Option<String>,
     pub kennel_release_msg: Option<String>,
+    pub opt_in_to_metrics: bool,
 }
 
 impl From<KennelRow> for Kennel {
-    fn from(value: KennelRow) -> Self {
+    fn from(row_value: KennelRow) -> Self {
         Self {
-            id: value.id,
-            name: value.name,
-            guild_id: GuildId::new(value.guild_id as u64),
-            role_id: RoleId::new(value.guild_id as u64),
-            msg_announce: value.msg_announce,
-            msg_announce_edit: value.msg_announce_edit,
-            msg_release: value.msg_release,
-            kennel_channel_id: value
+            id: row_value.id,
+            command: row_value.command,
+            guild_id: GuildId::new(row_value.guild_id as u64),
+            role_id: RoleId::new(row_value.guild_id as u64),
+            msg_announce: row_value.msg_announce,
+            msg_announce_edit: row_value.msg_announce_edit,
+            msg_release: row_value.msg_release,
+            kennel_channel_id: row_value
                 .kennel_channel_id
-                .and_then(|id| Some(ChannelId::new(id as u64))),
-            kennel_msg: value.kennel_msg,
-            kennel_msg_edit: value.kennel_msg_edit,
-            kennel_release_msg: value.kennel_release_msg,
+                .map(|id| ChannelId::new(id as u64)),
+            kennel_msg: row_value.kennel_msg,
+            kennel_msg_edit: row_value.kennel_msg_edit,
+            kennel_release_msg: row_value.kennel_release_msg,
+            opt_in_to_metrics: row_value.opt_in_to_metrics,
         }
     }
 }
@@ -74,13 +77,14 @@ impl Kennel {
         kennel_msg: Option<String>,
         kennel_msg_edit: Option<String>,
         kennel_release_msg: Option<String>,
+        opt_in_to_metrics: bool,
     ) -> Result<Kennel> {
         let query_res = sqlx::query_as!(
             KennelRow,
             r#"
             INSERT INTO kennels
                 (
-                    name, 
+                    command, 
                     guild_id, 
                     role_id, 
                     msg_announce, 
@@ -89,7 +93,8 @@ impl Kennel {
                     kennel_channel_id, 
                     kennel_msg, 
                     kennel_msg_edit, 
-                    kennel_release_msg
+                    kennel_release_msg,
+                    opt_in_to_metrics
                 )
             VALUES
                 (
@@ -102,7 +107,8 @@ impl Kennel {
                     $7,
                     $8,
                     $9,
-                    $10
+                    $10,
+                    $11
                 )
             RETURNING *
                 ;
@@ -113,10 +119,11 @@ impl Kennel {
             msg_announce,
             msg_announce_edit,
             msg_release,
-            kennel_channel_id.and_then(|id| Some(id.get() as i64)),
+            kennel_channel_id.map(|id| id.get() as i64),
             kennel_msg,
             kennel_msg_edit,
-            kennel_release_msg
+            kennel_release_msg,
+            opt_in_to_metrics,
         )
         .fetch_one(pool)
         .await?;
@@ -134,7 +141,7 @@ impl Kennel {
     ) -> Result<()> {
         let Self {
             id,
-            name,
+            command: name,
             guild_id,
             role_id,
             msg_announce,
@@ -160,8 +167,12 @@ impl Kennel {
             name,
             &guild.name
         );
-        victim.add_role(http, role_id);
-        tracing::trace!("Added successfully!");
+        if let Err(e) = victim.add_role(http, role_id).await {
+            tracing::error!("Couldn't add role to victim for kenneling ");
+            return Err(e.into());
+        } else {
+            tracing::trace!("Added successfully!");
+        }
 
         // Send announcement messages if applicable
         let mut msg_announce_id: Option<MessageId> = None;
