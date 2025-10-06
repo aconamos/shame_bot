@@ -5,6 +5,7 @@ use shame_bot::{
     Context, ShameBotData,
     util::{get_guild_id::GetGuildID, stefan_traits::SendReplyEphemeral},
 };
+use sqlx::Execute as _;
 
 static COMMAND_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(r"^[-_'\p{L}\p{N}\p{sc=Deva}\p{sc=Thai}]{1,32}$").unwrap()
@@ -186,28 +187,31 @@ pub async fn set_message(
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
 
-    let res = sqlx::query(
+    let base_statement = format!(
         r#"
         UPDATE kennels
         SET
-            $1 = $2
+            {} = $1
         WHERE
-            command = $3
-            ;
+            command = $2
         "#,
-    )
-    .bind(property.to_string())
-    .bind(value)
-    .bind(&kennel)
-    .execute(pool)
-    .await;
+        // This reeks of SQL injection! It's fun!
+        property.to_string()
+    );
+
+    let res = sqlx::query(&base_statement)
+        .bind(value)
+        .bind(&kennel)
+        .execute(pool)
+        .await;
 
     match res {
         Ok(x) => {
-            let _ = ctx.reply("success").await;
+            let _ = ctx.reply_ephemeral("success").await;
+            tracing::debug!("success: {x:?}");
         }
         Err(x) => {
-            let _ = ctx.reply("err").await;
+            let _ = ctx.reply_ephemeral("err").await;
             tracing::error!("error: {x:?}");
             return Err(x.into());
         }
