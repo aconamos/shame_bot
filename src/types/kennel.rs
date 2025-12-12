@@ -271,8 +271,25 @@ impl Kennel {
         Ok(query_as!(
             KennelingRow,
             r#"
-            SELECT *
-            FROM kennelings
+            SELECT 
+                k.id,
+                k.kennel_id,
+                k.author_id,
+                k.victim_id,
+                k.kenneled_at,
+                k.kennel_length,
+                k.released_at,
+                k.msg_announce_id,
+                k.kennel_msg_id,
+                a.channel_id as msg_announce_channel_id,
+                b.channel_id as kennel_msg_channel_id
+            FROM kennelings k
+            JOIN sent_messages a
+            ON
+                k.msg_announce_id = a.message_id
+            JOIN sent_messages b
+            ON
+                k.kennel_msg_id = b.message_id
             WHERE
                 released_at > CURRENT_TIMESTAMP
                 AND kennel_id = $1
@@ -302,8 +319,8 @@ impl Kennel {
             kenneled_at,
             kennel_length,
             released_at,
-            msg_announce_id,
-            kennel_msg_id,
+            msg_announce,
+            kennel_msg,
         } = kenneling;
 
         let Self {
@@ -393,14 +410,12 @@ impl Kennel {
             kenneled_at,
             kennel_length,
             released_at,
-            msg_announce_id,
-            kennel_msg_id,
+            msg_announce,
+            kennel_msg,
         } = kenneling;
 
-        if let Some(id) = msg_announce_id {
-            // TODO: Database now needs to store channel ID of the given messages
-            // disintegrate emoji
-            let handle = http.get_message(1.into(), *id);
+        if let Some(msg) = msg_announce {
+            let handle = http.get_message(msg.1, msg.0);
         }
 
         Ok(())

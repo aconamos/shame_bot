@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use chrono::DateTime;
 use chrono::Utc;
+use serenity::all::ChannelId;
 use serenity::all::GuildId;
 use serenity::all::MessageId;
 use serenity::all::UserId;
@@ -24,7 +25,9 @@ pub struct KennelingRow {
     pub kennel_length: sqlx::postgres::types::PgInterval,
     pub released_at: sqlx::types::chrono::NaiveDateTime,
     pub msg_announce_id: Option<i64>,
+    pub msg_announce_channel_id: Option<i64>,
     pub kennel_msg_id: Option<i64>,
+    pub kennel_msg_channel_id: Option<i64>,
 }
 
 /// Information about a given Kenneling from the database.
@@ -37,8 +40,8 @@ pub struct Kenneling {
     pub kenneled_at: DateTime<Utc>,
     pub kennel_length: Duration,
     pub released_at: DateTime<Utc>,
-    pub msg_announce_id: Option<MessageId>,
-    pub kennel_msg_id: Option<MessageId>,
+    pub msg_announce: Option<(MessageId, ChannelId)>,
+    pub kennel_msg: Option<(MessageId, ChannelId)>,
 }
 
 impl From<&KennelingRow> for Kenneling {
@@ -51,8 +54,23 @@ impl From<&KennelingRow> for Kenneling {
             kenneled_at: row.kenneled_at.and_utc(),
             kennel_length: row.kennel_length.as_duration(),
             released_at: row.released_at.and_utc(),
-            msg_announce_id: row.msg_announce_id.map(|id| MessageId::new(id as u64)),
-            kennel_msg_id: row.kennel_msg_id.map(|id| MessageId::new(id as u64)),
+            msg_announce: row.msg_announce_id.map(|id| {
+                (
+                    MessageId::new(id as u64),
+                    ChannelId::new(
+                        row.msg_announce_channel_id.expect("Malformed data in DB!") as u64
+                    ),
+                )
+            }),
+            kennel_msg:
+                row.kennel_msg_id.map(|id| {
+                    (
+                        MessageId::new(id as u64),
+                        ChannelId::new(
+                            row.kennel_msg_channel_id.expect("Malformed data in DB!") as u64
+                        ),
+                    )
+                }),
         }
     }
 }
@@ -72,8 +90,10 @@ impl TryFrom<&Kenneling> for KennelingRow {
                 .try_into()
                 .map_err(|_| anyhow!("Couldn't convert length into PgInterval"))?,
             released_at: row.released_at.naive_utc(),
-            msg_announce_id: row.msg_announce_id.map(|id| id.get() as i64),
-            kennel_msg_id: row.kennel_msg_id.map(|id| id.get() as i64),
+            msg_announce_id: row.msg_announce.map(|(msg, _)| msg.get() as i64),
+            msg_announce_channel_id: row.msg_announce.map(|(_, channel)| channel.get() as i64),
+            kennel_msg_id: row.kennel_msg.map(|(msg, _)| msg.get() as i64),
+            kennel_msg_channel_id: row.kennel_msg.map(|(_, channel)| channel.get() as i64),
         })
     }
 }
