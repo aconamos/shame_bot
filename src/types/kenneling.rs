@@ -18,7 +18,6 @@ use crate::util::stefan_traits::GetRelativeTimestamp as _;
 pub struct KennelingRow {
     pub id: i32,
     pub kennel_id: i32,
-    pub guild_id: i64,
     pub author_id: i64,
     pub victim_id: i64,
     pub kenneled_at: sqlx::types::chrono::NaiveDateTime,
@@ -33,7 +32,6 @@ pub struct KennelingRow {
 pub struct Kenneling {
     pub id: i32,
     pub kennel_id: i32,
-    pub guild_id: GuildId,
     pub author_id: UserId,
     pub victim_id: UserId,
     pub kenneled_at: DateTime<Utc>,
@@ -48,7 +46,6 @@ impl From<&KennelingRow> for Kenneling {
         Self {
             id: row.id,
             kennel_id: row.kennel_id,
-            guild_id: GuildId::new(row.guild_id as u64),
             author_id: UserId::new(row.author_id as u64),
             victim_id: UserId::new(row.victim_id as u64),
             kenneled_at: row.kenneled_at.and_utc(),
@@ -67,7 +64,6 @@ impl TryFrom<&Kenneling> for KennelingRow {
         Ok(KennelingRow {
             id: row.id,
             kennel_id: row.kennel_id,
-            guild_id: row.guild_id.get() as i64,
             author_id: row.author_id.get() as i64,
             victim_id: row.victim_id.get() as i64,
             kenneled_at: row.kenneled_at.naive_utc(),

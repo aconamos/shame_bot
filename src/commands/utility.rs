@@ -14,7 +14,9 @@ pub async fn time_kenneled(ctx: Context<'_>) -> Result<()> {
     match sqlx::query!(
         r#"
         SELECT SUM(kennel_length)
-        FROM kennelings
+        FROM kennelings a
+        JOIN kennels b
+        ON a.kennel_id = b.id
         WHERE 
             NOT guild_id = '849505364764524565'
             ;

@@ -66,7 +66,9 @@ pub async fn set_activity(ctx: &serenity::prelude::Context, pool: &sqlx::PgPool)
     if let Ok(res) = sqlx::query!(
         r#"
         SELECT SUM(kennel_length)
-        FROM kennelings
+        FROM kennelings a
+        JOIN kennels b
+        ON a.kennel_id = b.id
         WHERE 
             NOT guild_id = '849505364764524565'
             ;

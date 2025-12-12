@@ -230,7 +230,6 @@ impl Kennel {
             INSERT INTO kennelings
                 (
                     kennel_id,
-                    guild_id,
                     author_id,
                     victim_id,
                     kennel_length,
@@ -244,14 +243,12 @@ impl Kennel {
                     $3,
                     $4,
                     $5,
-                    $6,
-                    $7
+                    $6
                 )
             RETURNING *
                 ;
             "#,
             id,
-            guild_id.get() as i64,
             author_id.get() as i64,
             victim_id.get() as i64,
             kennel_length_pgint,
@@ -300,7 +297,6 @@ impl Kennel {
         let Kenneling {
             id: kenneling_id,
             kennel_id,
-            guild_id,
             author_id,
             victim_id,
             kenneled_at,
@@ -392,7 +388,6 @@ impl Kennel {
         let Kenneling {
             id,
             kennel_id,
-            guild_id,
             author_id,
             victim_id,
             kenneled_at,
