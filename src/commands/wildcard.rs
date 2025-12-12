@@ -32,16 +32,16 @@ async fn kennel_user(
         return ctx.reply_ephemeral("Over 1 second, please...").await;
     }
 
-    let Ok(data) = sqlx::query_as!(
-        ServerRow,
+    let Ok(kennel) = sqlx::query_as!(
+        KennelRow,
         r#"
-        SELECT * FROM servers
+        SELECT * FROM kennels
         WHERE
             guild_id = $1
-            AND command_name = $2
+            AND command = $2
             ;
         "#,
-        guild_id.get().to_string(),
+        guild_id.get() as i64,
         ctx.invoked_command_name()
     )
     .fetch_one(pool)
@@ -51,33 +51,20 @@ async fn kennel_user(
 
         return Ok(());
     };
-    let server: Server = data.try_into()?;
 
-    let http = ctx.http();
-    let now = chrono::Utc::now();
-    let return_timestamp = now + dur_time;
+    let kennel: Kennel = kennel.into();
 
-    let kenneling = Kenneling {
-        guild_id,
-        kennel_length: dur_time,
-        kenneled_at: now,
-        author_id: ctx.author().id,
-        released_at: return_timestamp,
-        victim_id: user,
-        id: None,
-    };
-
-    let reply_handle = kenneling.apply_kennel(http, &server, Some(&ctx)).await?;
-    let kenneling_row = KennelingRow::try_from(&kenneling)?;
-    kenneling_row.assume_current_and_insert(pool).await?;
+    kennel
+        .kennel_someone(ctx, ctx.author().id, user, dur_time)
+        .await?;
 
     set_activity(ctx.serenity_context(), pool).await;
 
     tokio::time::sleep(dur_time).await;
 
-    kenneling
-        .unapply_kennel(http, pool, true, reply_handle.as_ref(), Some(&ctx))
-        .await?;
+    // kenneling
+    //     .unapply_kennel(http, pool, true, reply_handle.as_ref(), Some(&ctx))
+    //     .await?;
 
     Ok(())
 }

@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
-use serenity::all::{ChannelId, CreateMessage, EditMessage, GuildId, MessageId, RoleId, UserId};
+use serenity::{
+    all::{ChannelId, CreateMessage, EditMessage, GuildId, MessageId, RoleId, UserId},
+    http,
+};
 use sqlx::{PgPool, postgres::types::PgInterval, query_as};
 
 use crate::{
@@ -137,7 +140,7 @@ impl Kennel {
         author_id: UserId,
         victim_id: UserId,
         kennel_length: Duration,
-    ) -> Result<()> {
+    ) -> Result<Kenneling> {
         let Self {
             id,
             command: name,
@@ -177,6 +180,8 @@ impl Kennel {
         let mut msg_announce_id: Option<MessageId> = None;
         let mut kennel_msg_id: Option<MessageId> = None;
 
+        // todo: refactor to send_messages fn
+
         if let Some(msg) = msg_announce {
             let formatted_msg = get_formatted_message(
                 msg,
@@ -193,6 +198,23 @@ impl Kennel {
 
             if let Ok(reply_handle) = res {
                 msg_announce_id = Some(reply_handle.id);
+
+                if let Err(e) = sqlx::query!(
+                    r#"
+                    INSERT INTO sent_messages
+                        (message_id, channel_id)
+                    VALUES
+                        ($1, $2)
+                        ;
+                    "#,
+                    reply_handle.id.get() as i64,
+                    ctx.channel_id().get() as i64,
+                )
+                .execute(pool)
+                .await
+                {
+                    tracing::error!("Error inserting message! {:?}", e);
+                }
             } else {
                 tracing::error!("Replying to kenneling failed!");
             }
@@ -215,6 +237,23 @@ impl Kennel {
 
             if let Ok(reply_handle) = res {
                 kennel_msg_id = Some(reply_handle.id);
+
+                if let Err(e) = sqlx::query!(
+                    r#"
+                    INSERT INTO sent_messages
+                        (message_id, channel_id)
+                    VALUES
+                        ($1, $2)
+                        ;
+                    "#,
+                    reply_handle.id.get() as i64,
+                    ctx.channel_id().get() as i64,
+                )
+                .execute(pool)
+                .await
+                {
+                    tracing::error!("Error inserting message! {:?}", e);
+                }
             } else {
                 tracing::error!("Announcement in kenneling channel failed!");
             }
@@ -225,27 +264,50 @@ impl Kennel {
             .try_into()
             .expect("Microsecond duration encountered in kennel_length!");
 
-        let res = sqlx::query!(
+        let res = sqlx::query_as!(
+            KennelingRow,
             r#"
-            INSERT INTO kennelings
-                (
-                    kennel_id,
-                    author_id,
-                    victim_id,
-                    kennel_length,
-                    msg_announce_id,
-                    kennel_msg_id
-                )
-            VALUES
-                (
-                    $1,
-                    $2,
-                    $3,
-                    $4,
-                    $5,
-                    $6
-                )
-            RETURNING *
+            WITH k AS 
+            (
+                INSERT INTO kennelings
+                    (
+                        kennel_id,
+                        author_id,
+                        victim_id,
+                        kennel_length,
+                        msg_announce_id,
+                        kennel_msg_id
+                    )
+                VALUES
+                    (
+                        $1,
+                        $2,
+                        $3,
+                        $4,
+                        $5,
+                        $6
+                    )
+                RETURNING *
+            )
+            SELECT 
+                k.id,
+                k.kennel_id,
+                k.author_id,
+                k.victim_id,
+                k.kenneled_at,
+                k.kennel_length,
+                k.released_at,
+                k.msg_announce_id,
+                k.kennel_msg_id,
+                a.channel_id as msg_announce_channel_id,
+                b.channel_id as kennel_msg_channel_id
+            FROM kennelings k
+            JOIN sent_messages a
+            ON
+                k.msg_announce_id = a.message_id
+            JOIN sent_messages b
+            ON
+                k.kennel_msg_id = b.message_id
                 ;
             "#,
             id,
@@ -258,11 +320,33 @@ impl Kennel {
         .fetch_one(pool)
         .await;
 
-        if let Err(err) = res {
-            return Err(err).context(format!("Couldn't insert kenneling into the database!"));
-        } else {
-            tracing::trace!("Kenneling inserted");
+        match res {
+            Err(err) => Err(err).context(format!("Couldn't insert kenneling into the database!")),
+            Ok(kennel) => Ok((&kennel).into()),
         }
+    }
+
+    pub async fn unkennel_someone(&self, ctx: Context<'_>, kenneling: &Kenneling) -> Result<()> {
+        let ShameBotData { pool } = ctx.data();
+        let http = ctx.http();
+        let pool = pool.as_ref();
+
+        let Self {
+            guild_id, role_id, ..
+        } = self;
+
+        let Kenneling { victim_id, .. } = kenneling;
+
+        let guild = guild_id.to_partial_guild(http).await?;
+        let victim = guild.member(http, victim_id).await?;
+
+        if let Err(err) = victim.remove_role(http, role_id).await {
+            return Err(err).context("Couldn't remove role from victim for kenneling ");
+        } else {
+            tracing::trace!("Removed successfully!");
+        }
+
+        self.edit_messages(http, pool, kenneling).await?;
 
         Ok(())
     }

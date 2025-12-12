@@ -1,26 +1,24 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-// use commands::setup_commands::*;
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
-use serenity::all::{CacheHttp, GuildId};
+use serenity::all::CacheHttp;
 use shame_bot::types::{Kennel, KennelRow};
-use shame_bot::{Context, ShameBotData, set_activity};
+use shame_bot::{ShameBotData, set_activity};
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::commands::config;
 use crate::commands::utility::time_kenneled;
-// use crate::commands::wildcard::wildcard_command_handler;
+use crate::commands::wildcard::wildcard_command_handler;
 
 mod healthcheck;
 mod commands {
     pub mod config;
-    // pub mod setup_commands;
     pub mod utility;
-    // pub mod wildcard;
+    pub mod wildcard;
 }
 
 /// The timeout between healthcehcks.
@@ -51,14 +49,8 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![
-                config::kennels(),
-                config::create(),
-                config::set_message(),
-                time_kenneled(),
-            ],
-            // TODO: event_handler here
-            // event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
+            commands: vec![config::kennels(), time_kenneled()],
+            event_handler: |w, x, y, z| Box::pin(wildcard_command_handler(w, x, y, z)),
             on_error: |error| {
                 async fn error_cb(error: poise::FrameworkError<'_, ShameBotData, anyhow::Error>) {
                     // Get rid of the unknown interaction errors because the kennel command triggers this.
@@ -66,7 +58,7 @@ async fn main() {
                         return;
                     }
 
-                    tracing::error!("{:?}", error.to_string())
+                    tracing::error!("{}", error.to_string())
                 }
 
                 Box::pin(error_cb(error))
@@ -114,7 +106,15 @@ async fn main() {
 
                 set_activity(ctx, pool.as_ref()).await;
 
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                tracing::trace!("Registering global commands...");
+
+                let res =
+                    poise::builtins::register_globally(ctx, &framework.options().commands).await;
+
+                if let Err(e) = res {
+                    tracing::debug!("{:?}", e);
+                    return Err(e.into());
+                }
 
                 tracing::info!("Bot started!");
                 Ok(ShameBotData {

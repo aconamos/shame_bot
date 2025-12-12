@@ -11,7 +11,7 @@ static COMMAND_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::n
 });
 
 /// Useless stub for command grouping.
-#[poise::command(slash_command, subcommands("create", "set_message", "toggle_metrics"))]
+#[poise::command(slash_command)]
 pub async fn kennels(_ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
@@ -176,6 +176,7 @@ async fn autocomplete_kennel(ctx: Context<'_>, partial: &str) -> impl Iterator<I
     kennel_names.into_iter()
 }
 
+/// Sets a message in the bot config.
 #[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
 pub async fn set_message(
     ctx: Context<'_>,
@@ -256,6 +257,7 @@ pub async fn set_message(
     Ok(())
 }
 
+/// Opts in or out of metrics
 #[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
 pub async fn toggle_metrics(
     ctx: Context<'_>,
