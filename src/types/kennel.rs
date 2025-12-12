@@ -1,11 +1,13 @@
 use std::time::Duration;
 
-use anyhow::{Result, anyhow};
-use serenity::all::{ChannelId, CreateMessage, GuildId, Http, MessageId, RoleId, UserId};
-use sqlx::{PgPool, postgres::types::PgInterval};
+use anyhow::{Context as _, Result};
+use serenity::all::{ChannelId, CreateMessage, GuildId, MessageId, RoleId, UserId};
+use sqlx::{PgPool, postgres::types::PgInterval, query_as};
 
 use crate::{
-    Context, ShameBotData, get_formatted_message, util::stefan_traits::GetRelativeTimestamp,
+    Context, ShameBotData, get_formatted_message,
+    types::{Kenneling, KennelingRow},
+    util::stefan_traits::GetRelativeTimestamp,
 };
 
 /// Represents the fields available from the `kennels` table.
@@ -64,75 +66,72 @@ impl From<KennelRow> for Kennel {
 }
 
 impl Kennel {
-    /// Inserts a new kennel into the database and returns the full Kennel struct with an id.
-    async fn insert(
-        pool: &PgPool,
-        name: String,
-        guild_id: GuildId,
-        role_id: RoleId,
-        msg_announce: Option<String>,
-        msg_announce_edit: Option<String>,
-        msg_release: Option<String>,
-        kennel_channel_id: Option<ChannelId>,
-        kennel_msg: Option<String>,
-        kennel_msg_edit: Option<String>,
-        kennel_release_msg: Option<String>,
-        opt_in_to_metrics: bool,
-    ) -> Result<Kennel> {
-        let query_res = sqlx::query_as!(
-            KennelRow,
-            r#"
-            INSERT INTO kennels
-                (
-                    command, 
-                    guild_id, 
-                    role_id, 
-                    msg_announce, 
-                    msg_announce_edit, 
-                    msg_release, 
-                    kennel_channel_id, 
-                    kennel_msg, 
-                    kennel_msg_edit, 
-                    kennel_release_msg,
-                    opt_in_to_metrics
-                )
-            VALUES
-                (
-                    $1,
-                    $2,
-                    $3,
-                    $4,
-                    $5,
-                    $6,
-                    $7,
-                    $8,
-                    $9,
-                    $10,
-                    $11
-                )
-            RETURNING *
-                ;
-            "#,
-            name,
-            guild_id.get() as i64,
-            role_id.get() as i64,
+    /// Updates this kennel in the database.
+    ///
+    /// It is worth noting that this exposes an API internally that allows potentially invalid data entry.
+    /// The public-facing API through the bot ensures that data is entered correctly, but be cautious
+    /// while calling this method, as it could lead to unexpected/undefined behavior if fields that
+    /// aren't normally mutable are changed.
+    pub async fn update(&self, pool: &PgPool) -> Result<()> {
+        let Self {
+            // These fields are generally considered immutable.
+            id,
+            command,
+            guild_id,
+            role_id,
+            // These fields are mutable.
             msg_announce,
             msg_announce_edit,
             msg_release,
-            kennel_channel_id.map(|id| id.get() as i64),
+            kennel_channel_id,
             kennel_msg,
             kennel_msg_edit,
             kennel_release_msg,
             opt_in_to_metrics,
-        )
-        .fetch_one(pool)
-        .await?;
+        } = self;
 
-        Ok(query_res.into())
+        let query_res = sqlx::query!(
+            r#"
+            UPDATE kennels
+                SET 
+                command = $2,
+                guild_id = $3,
+                role_id = $4,
+                msg_announce = $5,
+                msg_announce_edit = $6,
+                msg_release = $7,
+                kennel_channel_id = $8,
+                kennel_msg = $9,
+                kennel_msg_edit = $10,
+                kennel_release_msg = $11,
+                opt_in_to_metrics = $12
+            WHERE
+                id = $1
+                ;
+            "#,
+            id,
+            command,
+            guild_id.get() as i64,
+            role_id.get() as i64,
+            msg_announce.as_ref(),
+            msg_announce_edit.as_ref(),
+            msg_release.as_ref(),
+            kennel_channel_id.map(|id| id.get() as i64),
+            kennel_msg.as_ref(),
+            kennel_msg_edit.as_ref(),
+            kennel_release_msg.as_ref(),
+            opt_in_to_metrics,
+        )
+        .execute(pool)
+        .await;
+
+        query_res
+            .map(|_| ())
+            .context(format!("Error updating kennel {} to {:?}", id, self))
     }
 
     /// Creates a new kenneling.
-    async fn kennel_someone(
+    pub async fn kennel_someone(
         &self,
         ctx: Context<'_>,
         author_id: UserId,
@@ -167,9 +166,9 @@ impl Kennel {
             name,
             &guild.name
         );
-        if let Err(e) = victim.add_role(http, role_id).await {
-            tracing::error!("Couldn't add role to victim for kenneling ");
-            return Err(e.into());
+
+        if let Err(err) = victim.add_role(http, role_id).await {
+            return Err(err).context("Couldn't add role to victim for kenneling ");
         } else {
             tracing::trace!("Added successfully!");
         }
@@ -262,10 +261,151 @@ impl Kennel {
         .fetch_one(pool)
         .await;
 
-        if let Err(e) = res {
-            tracing::error!("Error encountered inserting kenneling into database! {e:?}");
+        if let Err(err) = res {
+            return Err(err).context(format!("Couldn't insert kenneling into the database!"));
         } else {
             tracing::trace!("Kenneling inserted");
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_current_kennelings(&self, pool: &PgPool) -> Result<Vec<Kenneling>> {
+        Ok(query_as!(
+            KennelingRow,
+            r#"
+            SELECT *
+            FROM kennelings
+            WHERE
+                released_at > CURRENT_TIMESTAMP
+                AND kennel_id = $1
+                ;
+            "#,
+            self.id
+        )
+        .fetch_all(pool)
+        .await?
+        .iter()
+        .map(|kr| kr.into())
+        .collect())
+    }
+
+    /// Validates a given kenneling, updating the database and messages if necessary.
+    pub async fn validate_kenneling(
+        &self,
+        http: &serenity::all::Http,
+        pool: &PgPool,
+        kenneling: &Kenneling,
+    ) -> Result<()> {
+        let Kenneling {
+            id: kenneling_id,
+            kennel_id,
+            guild_id,
+            author_id,
+            victim_id,
+            kenneled_at,
+            kennel_length,
+            released_at,
+            msg_announce_id,
+            kennel_msg_id,
+        } = kenneling;
+
+        let Self {
+            id,
+            command,
+            guild_id,
+            role_id: kennel_role,
+            msg_announce,
+            msg_announce_edit,
+            msg_release,
+            kennel_channel_id,
+            kennel_msg,
+            kennel_msg_edit,
+            kennel_release_msg,
+            opt_in_to_metrics,
+        } = self;
+
+        let guild = http.get_guild(*guild_id).await?;
+        let victim = guild.member(http, victim_id).await?;
+
+        if !victim.roles.iter().any(|role| role == kennel_role) {
+            tracing::debug!("Stale kenneling detected! {kenneling:?}");
+
+            let kenneled_at = kenneling.kenneled_at;
+            let now = chrono::Utc::now();
+
+            let dur_served = now - kenneled_at;
+            let dur_served = Duration::from_secs(dur_served.num_seconds() as u64)
+                + Duration::from_micros(dur_served.subsec_micros() as u64);
+
+            let time_served =
+                PgInterval::try_from(dur_served).expect("Duration served got constructed wrong!");
+
+            sqlx::query!(
+                r#"
+                    UPDATE kennelings
+                    SET
+                        kennel_length = $1
+                    WHERE
+                        id = $2
+                        ;
+                "#,
+                time_served,
+                kenneling_id,
+            )
+            .execute(pool)
+            .await?;
+
+            tracing::info!(
+                "Kenneling ended early. Time served: {}",
+                humantime::format_duration(dur_served)
+            );
+
+            // TODO: Should set_activity, but with what context?'
+        }
+
+        Ok(())
+    }
+
+    /// Edits the messages for a given kenneling.
+    pub async fn edit_messages(
+        &self,
+        http: &serenity::all::Http,
+        pool: &PgPool,
+        kenneling: &Kenneling,
+    ) -> Result<()> {
+        let Self {
+            id,
+            command,
+            guild_id,
+            role_id,
+            msg_announce,
+            msg_announce_edit,
+            msg_release,
+            kennel_channel_id,
+            kennel_msg,
+            kennel_msg_edit,
+            kennel_release_msg,
+            opt_in_to_metrics,
+        } = self;
+
+        let Kenneling {
+            id,
+            kennel_id,
+            guild_id,
+            author_id,
+            victim_id,
+            kenneled_at,
+            kennel_length,
+            released_at,
+            msg_announce_id,
+            kennel_msg_id,
+        } = kenneling;
+
+        if let Some(id) = msg_announce_id {
+            // TODO: Database now needs to store channel ID of the given messages
+            // disintegrate emoji
+            let handle = http.get_message(1.into(), *id);
         }
 
         Ok(())

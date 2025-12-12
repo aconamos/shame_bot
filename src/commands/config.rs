@@ -1,18 +1,17 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result};
 use poise::serenity_prelude as serenity;
-use serenity::{ChannelId, RoleId};
 use shame_bot::{
     Context, ShameBotData,
+    types::{Kennel, KennelRow},
     util::{get_guild_id::GetGuildID, stefan_traits::SendReplyEphemeral},
 };
-use sqlx::Execute as _;
 
 static COMMAND_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(r"^[-_'\p{L}\p{N}\p{sc=Deva}\p{sc=Thai}]{1,32}$").unwrap()
 });
 
-/// Useless stub for command groupingf .
-#[poise::command(slash_command, subcommands("create", "set_message"))]
+/// Useless stub for command grouping.
+#[poise::command(slash_command, subcommands("create", "set_message", "toggle_metrics"))]
 pub async fn kennels(_ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
@@ -36,7 +35,7 @@ pub async fn create(
             .await;
     };
 
-    // validate uniqueness of kennel name and role id
+    // validate uniqueness of kennel name to guild and role id (not necessary to validate role with guild because they are snowflakes)
     let Err(_) = sqlx::query!(
         r#"
         SELECT *
@@ -61,9 +60,11 @@ pub async fn create(
         FROM kennels
         WHERE
             command = $1
+            AND guild_id = $2
             ;
         "#,
-        &command
+        &command,
+        guild_id.get() as i64
     )
     .fetch_one(pool)
     .await
@@ -95,9 +96,9 @@ pub async fn create(
             ctx.reply_ephemeral(format!("New kennel `{}` was created!\nIt's recommended to set the announcement messages now and the kennel channel, if applicable.", &command))
                 .await?;
         }
-        Err(e) => {
-            ctx.reply_ephemeral("Couldn't create new kennel!").await?;
-            return Err(anyhow!("Error inserting kennel: {e:?}"));
+        Err(err) => {
+            let _ = ctx.reply_ephemeral("Couldn't create new kennel!").await;
+            return Err(err).context("Error inserting kennel!");
         }
     }
 
@@ -175,7 +176,7 @@ async fn autocomplete_kennel(ctx: Context<'_>, partial: &str) -> impl Iterator<I
     kennel_names.into_iter()
 }
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
 pub async fn set_message(
     ctx: Context<'_>,
     #[description = "Which message to modify"] property: MessageType,
@@ -186,6 +187,30 @@ pub async fn set_message(
 ) -> Result<()> {
     let ShameBotData { pool } = ctx.data();
     let pool = pool.as_ref();
+    let guild_id = ctx.require_guild().await?;
+
+    let Ok(_kennel_row) = sqlx::query_as!(
+        KennelRow,
+        r#"
+        SELECT *
+        FROM kennels
+        WHERE
+            command = $1
+            AND guild_id = $2
+            ;
+        "#,
+        &kennel,
+        guild_id.get() as i64
+    )
+    .fetch_one(pool)
+    .await
+    else {
+        return ctx
+            .reply_ephemeral("No kennel with the given name exists!")
+            .await;
+    };
+
+    // TODO: might be worth refactoring to use Kennel's .update(), but this works as is.
 
     let base_statement = format!(
         r#"
@@ -194,28 +219,92 @@ pub async fn set_message(
             {} = $1
         WHERE
             command = $2
+            AND guild_id = $3
+            ;
         "#,
         // This reeks of SQL injection! It's fun!
         property.to_string()
     );
 
     let res = sqlx::query(&base_statement)
-        .bind(value)
+        .bind(&value)
         .bind(&kennel)
+        .bind(guild_id.get() as i64)
         .execute(pool)
         .await;
 
-    match res {
-        Ok(x) => {
-            let _ = ctx.reply_ephemeral("success").await;
-            tracing::debug!("success: {x:?}");
-        }
-        Err(x) => {
-            let _ = ctx.reply_ephemeral("err").await;
-            tracing::error!("error: {x:?}");
-            return Err(x.into());
-        }
+    if let Err(err) = res {
+        let reply = format!(
+            "Couldn't set {} for kennel {} to `{}`",
+            property.to_string(),
+            &kennel,
+            &value.unwrap_or("".into())
+        );
+
+        let _ = ctx.reply_ephemeral(&reply).await;
+
+        return Err(err).context(reply);
     }
+
+    let reply = match value {
+        Some(val) => format!("Set {} to {}!", property.to_string(), &val),
+        None => format!("Removed message from {}", property.to_string()),
+    };
+
+    let _ = ctx.reply_ephemeral(&reply).await;
+
+    Ok(())
+}
+
+#[poise::command(slash_command, default_member_permissions = "ADMINISTRATOR")]
+pub async fn toggle_metrics(
+    ctx: Context<'_>,
+    #[description = "The kennel to modify"]
+    #[autocomplete = "autocomplete_kennel"]
+    kennel: String,
+) -> Result<()> {
+    let ShameBotData { pool } = ctx.data();
+    let pool = pool.as_ref();
+    let guild_id = ctx.require_guild().await?;
+
+    let query_res = sqlx::query_as!(
+        KennelRow,
+        r#"
+        SELECT *
+        FROM kennels
+        WHERE
+            command = $1
+            AND guild_id = $2
+            ;
+        "#,
+        &kennel,
+        guild_id.get() as i64
+    )
+    .fetch_one(pool)
+    .await;
+
+    let Ok(kennel) = query_res else {
+        return ctx.reply_ephemeral("Couldn't find the given kennel!").await;
+    };
+
+    let mut kennel: Kennel = kennel.into();
+
+    kennel.opt_in_to_metrics = !kennel.opt_in_to_metrics;
+
+    let res = kennel.update(pool).await;
+
+    if let Err(err) = res {
+        let _ = ctx.reply_ephemeral("A database error occurred!").await;
+
+        return Err(err).context(format!("Couldn't toggle metrics for kennel {:?}", kennel));
+    }
+
+    let _ = ctx
+        .reply_ephemeral(match kennel.opt_in_to_metrics {
+            true => "Toggled metrics to on!",
+            false => "Toggled metrics to off!",
+        })
+        .await;
 
     Ok(())
 }

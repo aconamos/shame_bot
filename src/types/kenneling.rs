@@ -16,31 +16,31 @@ use crate::util::stefan_traits::GetRelativeTimestamp as _;
 /// Represents the fields available from a query to the `kennelings` table.
 #[derive(Debug)]
 pub struct KennelingRow {
-    id: i32,
-    kennel_id: i32,
-    guild_id: i64,
-    author_id: i64,
-    victim_id: i64,
-    kenneled_at: sqlx::types::chrono::NaiveDateTime,
-    kennel_length: sqlx::postgres::types::PgInterval,
-    released_at: sqlx::types::chrono::NaiveDateTime,
-    msg_announce_id: Option<i64>,
-    kennel_msg_id: Option<i64>,
+    pub id: i32,
+    pub kennel_id: i32,
+    pub guild_id: i64,
+    pub author_id: i64,
+    pub victim_id: i64,
+    pub kenneled_at: sqlx::types::chrono::NaiveDateTime,
+    pub kennel_length: sqlx::postgres::types::PgInterval,
+    pub released_at: sqlx::types::chrono::NaiveDateTime,
+    pub msg_announce_id: Option<i64>,
+    pub kennel_msg_id: Option<i64>,
 }
 
 /// Information about a given Kenneling from the database.
 #[derive(Debug)]
 pub struct Kenneling {
-    pub(super) id: i32,
-    pub(super) kennel_id: i32,
-    pub(super) guild_id: GuildId,
-    pub(super) author_id: UserId,
-    pub(super) victim_id: UserId,
-    pub(super) kenneled_at: DateTime<Utc>,
-    pub(super) kennel_length: Duration,
-    pub(super) released_at: DateTime<Utc>,
-    pub(super) msg_announce_id: Option<MessageId>,
-    pub(super) kennel_msg_id: Option<MessageId>,
+    pub id: i32,
+    pub kennel_id: i32,
+    pub guild_id: GuildId,
+    pub author_id: UserId,
+    pub victim_id: UserId,
+    pub kenneled_at: DateTime<Utc>,
+    pub kennel_length: Duration,
+    pub released_at: DateTime<Utc>,
+    pub msg_announce_id: Option<MessageId>,
+    pub kennel_msg_id: Option<MessageId>,
 }
 
 impl From<&KennelingRow> for Kenneling {

@@ -15,7 +15,7 @@ use crate::commands::config;
 use crate::commands::utility::time_kenneled;
 // use crate::commands::wildcard::wildcard_command_handler;
 
-// mod healthcheck;
+mod healthcheck;
 mod commands {
     pub mod config;
     // pub mod setup_commands;
@@ -66,7 +66,7 @@ async fn main() {
                         return;
                     }
 
-                    tracing::error!("{}", error.to_string())
+                    tracing::error!("{:?}", error.to_string())
                 }
 
                 Box::pin(error_cb(error))
@@ -97,11 +97,15 @@ async fn main() {
                 for server_kennels in kennels_chunked {
                     tracing::debug!("Initializing server {}", server_kennels[0].guild_id);
 
+                    let mut command_names: Vec<&str> = vec![];
+
                     let commands: Vec<_> = server_kennels
                         .iter()
-                        .inspect(|cmd| tracing::debug!("kennel {}", &cmd.command))
+                        .inspect(|cmd| command_names.push(&cmd.command))
                         .map(|cmd| shame_bot::get_kennel_command_struct(&cmd.command))
                         .collect();
+
+                    tracing::debug!("Server commands: {:?}", command_names);
 
                     ctx.http()
                         .create_guild_commands(server_kennels[0].guild_id, &commands)
@@ -128,17 +132,17 @@ async fn main() {
     let thread_http = Arc::clone(&client.http);
 
     // TODO: Should this be moved to inside the ready callback?
-    // tokio::spawn(async move {
-    //     let http = thread_http.as_ref();
-    //     let pool = thread_pool.as_ref();
+    tokio::spawn(async move {
+        let http = thread_http.as_ref();
+        let pool = thread_pool.as_ref();
 
-    //     loop {
-    //         if let Err(e) = healthcheck::check(http, pool).await {
-    //             tracing::error!("Healthcheck failed!: {}", (*e).to_string());
-    //         }
-    //         tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
-    //     }
-    // });
+        loop {
+            if let Err(e) = healthcheck::check(http, pool).await {
+                tracing::error!("Healthcheck failed!: {}", (*e).to_string());
+            }
+            tokio::time::sleep(HEALTHCHECK_TIMEOUT).await;
+        }
+    });
 
     tracing::info!("Bot starting...");
     client.start().await.unwrap();
