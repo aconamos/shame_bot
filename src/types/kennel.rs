@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
-use serenity::all::{ChannelId, CreateMessage, GuildId, MessageId, RoleId, UserId};
+use serenity::all::{ChannelId, CreateMessage, EditMessage, GuildId, MessageId, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval, query_as};
 
 use crate::{
@@ -313,29 +313,14 @@ impl Kennel {
     ) -> Result<()> {
         let Kenneling {
             id: kenneling_id,
-            kennel_id,
-            author_id,
             victim_id,
-            kenneled_at,
-            kennel_length,
-            released_at,
-            msg_announce,
-            kennel_msg,
+            ..
         } = kenneling;
 
         let Self {
-            id,
-            command,
             guild_id,
             role_id: kennel_role,
-            msg_announce,
-            msg_announce_edit,
-            msg_release,
-            kennel_channel_id,
-            kennel_msg,
-            kennel_msg_edit,
-            kennel_release_msg,
-            opt_in_to_metrics,
+            ..
         } = self;
 
         let guild = http.get_guild(*guild_id).await?;
@@ -374,13 +359,14 @@ impl Kennel {
                 humantime::format_duration(dur_served)
             );
 
+            self.edit_messages(http, pool, kenneling).await?;
             // TODO: Should set_activity, but with what context?'
         }
 
         Ok(())
     }
 
-    /// Edits the messages for a given kenneling.
+    /// Edits the messages for a given kenneling, deleting them if necessary, including from the database.
     pub async fn edit_messages(
         &self,
         http: &serenity::all::Http,
@@ -388,34 +374,61 @@ impl Kennel {
         kenneling: &Kenneling,
     ) -> Result<()> {
         let Self {
-            id,
-            command,
-            guild_id,
-            role_id,
-            msg_announce,
             msg_announce_edit,
-            msg_release,
-            kennel_channel_id,
-            kennel_msg,
             kennel_msg_edit,
-            kennel_release_msg,
-            opt_in_to_metrics,
+            ..
         } = self;
 
         let Kenneling {
-            id,
-            kennel_id,
-            author_id,
-            victim_id,
-            kenneled_at,
-            kennel_length,
-            released_at,
             msg_announce,
             kennel_msg,
+            ..
         } = kenneling;
 
         if let Some(msg) = msg_announce {
-            let handle = http.get_message(msg.1, msg.0);
+            let mut handle = http.get_message(msg.1, msg.0).await?;
+
+            match msg_announce_edit {
+                Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,
+                None => {
+                    handle.delete(http).await?;
+
+                    sqlx::query!(
+                        r#"
+                        DELETE FROM
+                            sent_messages s
+                        WHERE
+                            s.message_id = $1
+                        "#,
+                        msg.1.get() as i64
+                    )
+                    .execute(pool)
+                    .await?;
+                }
+            }
+        }
+
+        if let Some(msg) = kennel_msg {
+            let mut handle = http.get_message(msg.1, msg.0).await?;
+
+            match kennel_msg_edit {
+                Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,
+                None => {
+                    handle.delete(http).await?;
+
+                    sqlx::query!(
+                        r#"
+                        DELETE FROM
+                            sent_messages s
+                        WHERE
+                            s.message_id = $1
+                        "#,
+                        msg.1.get() as i64
+                    )
+                    .execute(pool)
+                    .await?;
+                }
+            }
         }
 
         Ok(())
