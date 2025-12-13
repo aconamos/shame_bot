@@ -53,7 +53,7 @@ impl From<KennelRow> for Kennel {
             id: row_value.id,
             command: row_value.command,
             guild_id: GuildId::new(row_value.guild_id as u64),
-            role_id: RoleId::new(row_value.guild_id as u64),
+            role_id: RoleId::new(row_value.role_id as u64),
             msg_announce: row_value.msg_announce,
             msg_announce_edit: row_value.msg_announce_edit,
             msg_release: row_value.msg_release,
