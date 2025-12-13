@@ -87,7 +87,16 @@ async fn main() {
                 tracing::info!("Setting up guild commands...");
 
                 for server_kennels in kennels_chunked {
-                    tracing::debug!("Initializing server {}", server_kennels[0].guild_id);
+                    let guild_id = server_kennels[0].guild_id;
+
+                    let server_name = ctx
+                        .http()
+                        .get_guild(guild_id)
+                        .await
+                        .map(|g| g.name.clone())
+                        .unwrap_or("unknown name".into());
+
+                    tracing::debug!("Initializing server {server_name} ({guild_id})");
 
                     let mut command_names: Vec<&str> = vec![];
 
@@ -99,9 +108,14 @@ async fn main() {
 
                     tracing::debug!("Server commands: {:?}", command_names);
 
-                    ctx.http()
-                        .create_guild_commands(server_kennels[0].guild_id, &commands)
-                        .await?;
+                    let res = ctx.http()
+                        .create_guild_commands(guild_id, &commands)
+                        .await;
+
+                    if let Err(e) = res {
+                        tracing::error!("Couldn't initialize guild commands for guild {server_name} ({guild_id})! This may be because the server no longer exists!");
+                        tracing::error!("Error: {e:?}");
+                    }
                 }
 
                 set_activity(ctx, pool.as_ref()).await;

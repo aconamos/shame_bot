@@ -54,17 +54,17 @@ async fn kennel_user(
 
     let kennel: Kennel = kennel.into();
 
-    kennel
+    let kenneling = kennel
         .kennel_someone(ctx, ctx.author().id, user, dur_time)
         .await?;
+
+    let _ = ctx.reply_ephemeral("punishment administered!").await;
 
     set_activity(ctx.serenity_context(), pool).await;
 
     tokio::time::sleep(dur_time).await;
 
-    // kenneling
-    //     .unapply_kennel(http, pool, true, reply_handle.as_ref(), Some(&ctx))
-    //     .await?;
+    kennel.unkennel_someone(ctx, &kenneling).await?;
 
     Ok(())
 }
@@ -110,7 +110,11 @@ pub async fn wildcard_command_handler(
             .slash_action
             .with_context(|| "Command structure mismatch")?;
 
-        let _ = action(app_ctx).await;
+        let result = action(app_ctx).await;
+
+        if let Err(fw_err) = result {
+            (framework_ctx.options.on_error)(fw_err).await;
+        }
     }
 
     Ok(())

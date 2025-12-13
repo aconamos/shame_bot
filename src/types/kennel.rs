@@ -171,6 +171,7 @@ impl Kennel {
         );
 
         if let Err(err) = victim.add_role(http, role_id).await {
+            tracing::error!("error: {err:?}");
             return Err(err).context("Couldn't add role to victim for kenneling ");
         } else {
             tracing::trace!("Added successfully!");
@@ -247,7 +248,7 @@ impl Kennel {
                         ;
                     "#,
                     reply_handle.id.get() as i64,
-                    ctx.channel_id().get() as i64,
+                    channel.get() as i64,
                 )
                 .execute(pool)
                 .await
@@ -301,13 +302,13 @@ impl Kennel {
                 k.kennel_msg_id,
                 a.channel_id as msg_announce_channel_id,
                 b.channel_id as kennel_msg_channel_id
-            FROM kennelings k
-            JOIN sent_messages a
+            FROM k
+            LEFT JOIN sent_messages a
             ON
-                k.msg_announce_id = a.message_id
-            JOIN sent_messages b
+                a.message_id = k.msg_announce_id
+            LEFT JOIN sent_messages b
             ON
-                k.kennel_msg_id = b.message_id
+                b.message_id = k.kennel_msg_id
                 ;
             "#,
             id,
@@ -319,6 +320,11 @@ impl Kennel {
         )
         .fetch_one(pool)
         .await;
+
+        if let Err(e) = &res {
+            tracing::error!("{e:?}");
+            tracing::error!("{}", e.to_string());
+        }
 
         match res {
             Err(err) => Err(err).context(format!("Couldn't insert kenneling into the database!")),
@@ -346,7 +352,9 @@ impl Kennel {
             tracing::trace!("Removed successfully!");
         }
 
-        self.edit_messages(http, pool, kenneling).await?;
+        if let Err(err) = self.edit_messages(http, pool, kenneling).await {
+            tracing::error!("{err:?}");
+        };
 
         Ok(())
     }
@@ -368,10 +376,10 @@ impl Kennel {
                 a.channel_id as msg_announce_channel_id,
                 b.channel_id as kennel_msg_channel_id
             FROM kennelings k
-            JOIN sent_messages a
+            LEFT JOIN sent_messages a
             ON
                 k.msg_announce_id = a.message_id
-            JOIN sent_messages b
+            LEFT JOIN sent_messages b
             ON
                 k.kennel_msg_id = b.message_id
             WHERE
@@ -470,7 +478,14 @@ impl Kennel {
         } = kenneling;
 
         if let Some(msg) = msg_announce {
-            let mut handle = http.get_message(msg.1, msg.0).await?;
+            let mut handle = http.get_message(msg.1, msg.0).await;
+
+            if let Err(e) = handle {
+                tracing::error!("announce {e:?}");
+                return Err(e.into());
+            }
+
+            let mut handle = handle.unwrap();
 
             match msg_announce_edit {
                 Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,
@@ -493,7 +508,14 @@ impl Kennel {
         }
 
         if let Some(msg) = kennel_msg {
-            let mut handle = http.get_message(msg.1, msg.0).await?;
+            let mut handle = http.get_message(msg.1, msg.0).await;
+
+            if let Err(e) = handle {
+                tracing::error!("kennel {e:?}");
+                return Err(e.into());
+            }
+
+            let mut handle = handle.unwrap();
 
             match kennel_msg_edit {
                 Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,

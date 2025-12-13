@@ -11,7 +11,7 @@ static COMMAND_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::n
 });
 
 /// Useless stub for command grouping.
-#[poise::command(slash_command)]
+#[poise::command(slash_command, subcommands("create", "set_message", "toggle_metrics"))]
 pub async fn kennels(_ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
@@ -101,6 +101,8 @@ pub async fn create(
             return Err(err).context("Error inserting kennel!");
         }
     }
+
+    // TODO: Register guilod command
 
     Ok(())
 }
