@@ -1,10 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
-use serenity::{
-    all::{ChannelId, CreateMessage, EditMessage, GuildId, MessageId, RoleId, UserId},
-    http,
-};
+use serenity::all::{ChannelId, CreateMessage, EditMessage, GuildId, MessageId, RoleId, UserId};
 use sqlx::{PgPool, postgres::types::PgInterval, query_as};
 
 use crate::{
