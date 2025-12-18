@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT command\n        FROM kennels\n        WHERE\n            guild_id = $1\n            AND command ~ $2\n            ;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "command",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "aad2d46ee0ebc4aaa7f4955dcc8babc47457f8c6f1e0bd0056a3eee2d70b2b10"
+}

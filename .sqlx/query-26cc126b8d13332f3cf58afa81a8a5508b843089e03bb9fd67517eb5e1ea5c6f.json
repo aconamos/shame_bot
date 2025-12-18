@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO kennels\n                (\n                    name, \n                    guild_id, \n                    role_id, \n                    msg_announce, \n                    msg_announce_edit, \n                    msg_release, \n                    kennel_channel_id, \n                    kennel_msg, \n                    kennel_msg_edit, \n                    kennel_release_msg\n                )\n            VALUES\n                (\n                    $1,\n                    $2,\n                    $3,\n                    $4,\n                    $5,\n                    $6,\n                    $7,\n                    $8,\n                    $9,\n                    $10\n                )\n            RETURNING *\n                ;\n            ",
+  "query": "\n        SELECT *\n        FROM kennels\n        WHERE\n            command = $1\n            AND guild_id = $2\n            ;\n        ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
+        "name": "command",
         "type_info": "Text"
       },
       {
@@ -57,20 +57,17 @@
         "ordinal": 10,
         "name": "kennel_release_msg",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "opt_in_to_metrics",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
         "Text",
-        "Int8",
-        "Int8",
-        "Text",
-        "Text",
-        "Text",
-        "Int8",
-        "Text",
-        "Text",
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
@@ -84,8 +81,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "b30a07009cb898edecc6f47befb5491153f67bcd4f25e6c3d28c17f29b930f4a"
+  "hash": "26cc126b8d13332f3cf58afa81a8a5508b843089e03bb9fd67517eb5e1ea5c6f"
 }

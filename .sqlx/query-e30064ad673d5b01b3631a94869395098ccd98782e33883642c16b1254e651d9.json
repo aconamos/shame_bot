@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE kennelings\n                    SET\n                        kennel_length = $1\n                    WHERE\n                        id = $2\n                        ;\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Interval",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e30064ad673d5b01b3631a94869395098ccd98782e33883642c16b1254e651d9"
+}

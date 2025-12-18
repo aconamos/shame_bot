@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        DELETE FROM\n                            sent_messages s\n                        WHERE\n                            s.message_id = $1\n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "931f90dc422d9e46f123f7bf2e50a488b2212c6f8f5d3bb44a3cb9416a19eafc"
+}

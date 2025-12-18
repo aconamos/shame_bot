@@ -351,6 +351,8 @@ impl Kennel {
             tracing::error!("{err:?}");
         };
 
+        //todo: send announcement messages as well
+
         Ok(())
     }
 
@@ -469,11 +471,15 @@ impl Kennel {
         let Kenneling {
             msg_announce,
             kennel_msg,
+            author_id,
+            victim_id,
+            kennel_length,
+            released_at,
             ..
         } = kenneling;
 
         if let Some(msg) = msg_announce {
-            let mut handle = http.get_message(msg.1, msg.0).await;
+            let handle = http.get_message(msg.1, msg.0).await;
 
             if let Err(e) = handle {
                 tracing::error!("announce {e:?}");
@@ -483,7 +489,16 @@ impl Kennel {
             let mut handle = handle.unwrap();
 
             match msg_announce_edit {
-                Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,
+                Some(edit) => {
+                    let edit = get_formatted_message(
+                        &edit,
+                        victim_id,
+                        author_id,
+                        &humantime::format_duration(*kennel_length).to_string(),
+                        &released_at.discord_relative_timestamp(),
+                    );
+                    handle.edit(http, EditMessage::new().content(edit)).await?
+                }
                 None => {
                     handle.delete(http).await?;
 
@@ -503,7 +518,7 @@ impl Kennel {
         }
 
         if let Some(msg) = kennel_msg {
-            let mut handle = http.get_message(msg.1, msg.0).await;
+            let handle = http.get_message(msg.1, msg.0).await;
 
             if let Err(e) = handle {
                 tracing::error!("kennel {e:?}");
@@ -513,7 +528,16 @@ impl Kennel {
             let mut handle = handle.unwrap();
 
             match kennel_msg_edit {
-                Some(edit) => handle.edit(http, EditMessage::new().content(edit)).await?,
+                Some(edit) => {
+                    let edit = get_formatted_message(
+                        &edit,
+                        victim_id,
+                        author_id,
+                        &humantime::format_duration(*kennel_length).to_string(),
+                        &released_at.discord_relative_timestamp(),
+                    );
+                    handle.edit(http, EditMessage::new().content(edit)).await?
+                }
                 None => {
                     handle.delete(http).await?;
 

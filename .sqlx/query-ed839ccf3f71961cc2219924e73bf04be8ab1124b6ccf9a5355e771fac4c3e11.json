@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE kennels\n                SET \n                command = $2,\n                guild_id = $3,\n                role_id = $4,\n                msg_announce = $5,\n                msg_announce_edit = $6,\n                msg_release = $7,\n                kennel_channel_id = $8,\n                kennel_msg = $9,\n                kennel_msg_edit = $10,\n                kennel_release_msg = $11,\n                opt_in_to_metrics = $12\n            WHERE\n                id = $1\n                ;\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ed839ccf3f71961cc2219924e73bf04be8ab1124b6ccf9a5355e771fac4c3e11"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM kennels\n        WHERE\n            name = $1\n            ;\n        ",
+  "query": "\n        SELECT *\n        FROM kennels\n            ;\n        ",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
+        "name": "command",
         "type_info": "Text"
       },
       {
@@ -57,12 +57,15 @@
         "ordinal": 10,
         "name": "kennel_release_msg",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "opt_in_to_metrics",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
-      "Left": [
-        "Text"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -75,8 +78,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "2bc689dea2cea3048711f5032e486d65d04ad3c46257e2699c0074454b5c1598"
+  "hash": "a2cb5ad7a2fcff4cf2f4dca9e9793d86a50e66461dc3d88f4d5ce5a959b3efb7"
 }

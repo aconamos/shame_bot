@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT SUM(kennel_length)\n        FROM kennelings a\n        JOIN kennels b\n        ON a.kennel_id = b.id\n        WHERE \n            NOT guild_id = '849505364764524565'\n            ;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sum",
+        "type_info": "Interval"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bdf9e86b8904c505b0c77a987729bd803f958526033d40fefeaaf1611e6fda0f"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM kennels\n        WHERE\n            role_id = $1\n            ;\n        ",
+  "query": "\n        SELECT * FROM kennels\n        WHERE\n            guild_id = $1\n            AND command = $2\n            ;\n        ",
   "describe": {
     "columns": [
       {
@@ -66,7 +66,8 @@
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -84,5 +85,5 @@
       false
     ]
   },
-  "hash": "41e9deb27613959e36bed318c64c3198a05a5a31542c918ae3a5296c780d1bd4"
+  "hash": "8bf7acc058b1f3fcf0bddb778cddf4dffdf7b6f377636383b239be5214648f94"
 }

@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                k.id,\n                k.kennel_id,\n                k.author_id,\n                k.victim_id,\n                k.kenneled_at,\n                k.kennel_length,\n                k.released_at,\n                k.msg_announce_id,\n                k.kennel_msg_id,\n                a.channel_id as msg_announce_channel_id,\n                b.channel_id as kennel_msg_channel_id\n            FROM kennelings k\n            LEFT JOIN sent_messages a\n            ON\n                k.msg_announce_id = a.message_id\n            LEFT JOIN sent_messages b\n            ON\n                k.kennel_msg_id = b.message_id\n            WHERE\n                released_at > CURRENT_TIMESTAMP\n                AND kennel_id = $1\n                ;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "kennel_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "victim_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "kenneled_at",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 5,
+        "name": "kennel_length",
+        "type_info": "Interval"
+      },
+      {
+        "ordinal": 6,
+        "name": "released_at",
+        "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 7,
+        "name": "msg_announce_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "kennel_msg_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "msg_announce_channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "kennel_msg_channel_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "71379c68a62e5b4265096b3639f23469764dd6a42b83ecceb28e8ac85cd2960a"
+}
