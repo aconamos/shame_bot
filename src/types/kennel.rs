@@ -178,8 +178,6 @@ impl Kennel {
         let mut msg_announce_id: Option<MessageId> = None;
         let mut kennel_msg_id: Option<MessageId> = None;
 
-        // todo: refactor to send_messages fn
-
         if let Some(msg) = msg_announce {
             let formatted_msg = get_formatted_message(
                 msg,

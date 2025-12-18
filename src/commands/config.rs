@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result};
 use poise::serenity_prelude as serenity;
 use shame_bot::{
-    Context, ShameBotData,
+    Context, ShameBotData, get_kennel_command_struct,
     types::{Kennel, KennelRow},
     util::{get_guild_id::GetGuildID, stefan_traits::SendReplyEphemeral},
 };
@@ -102,7 +102,17 @@ pub async fn create(
         }
     }
 
-    // TODO: Register guilod command
+    let cmd = get_kennel_command_struct(&command);
+
+    match ctx.http().create_guild_command(guild_id, &cmd).await {
+        Ok(_) => {
+            tracing::debug!("Guild command {command} for {guild_id} created!");
+        }
+        Err(e) => {
+            tracing::error!("Failed to create command {command} for guild {guild_id}! {e}");
+            return Err(e.into());
+        }
+    };
 
     Ok(())
 }
